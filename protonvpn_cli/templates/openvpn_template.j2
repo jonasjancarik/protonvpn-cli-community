@@ -69,6 +69,9 @@ route {{ ip_nm_pair.ip }} {{ ip_nm_pair.nm }} net_gateway
 {%- endfor %}
 {%- endif %}
 
+# Ignore the ping-restart option pushed by the server
+pull-filter ignore "ping-restart"
+
 <ca>
 -----BEGIN CERTIFICATE-----
 MIIFozCCA4ugAwIBAgIBATANBgkqhkiG9w0BAQ0FADBAMQswCQYDVQQGEwJDSDEV
