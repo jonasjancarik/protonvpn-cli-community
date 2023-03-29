@@ -1,3 +1,7 @@
+Forked to add a hardcoded override for the default ping-restart option (pushed by the server) and a `down` script (to be placed in `~/.pvpn-cli/vpn-down.sh`.
+
+<hr>
+
 <h1 align="center">ProtonVPN-CLI</h1>
 <p align="center">
   <img src="resources/images/linux-cli-banner.png" alt="Logo"></img>
