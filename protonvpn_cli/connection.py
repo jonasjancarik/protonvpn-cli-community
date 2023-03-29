@@ -485,8 +485,8 @@ def openvpn_connect(servername, protocol):
                 "--auth-user-pass", PASSFILE,
                 "--dev", "proton0",
                 "--dev-type", "tun",
-                "--ping", "5",
-                "--ping-exit", "15"
+                "--ping", "10",
+                "--ping-exit", "30"
             ],
             stdout=f, stderr=f
         )
