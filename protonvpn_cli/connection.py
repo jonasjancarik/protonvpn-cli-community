@@ -486,7 +486,9 @@ def openvpn_connect(servername, protocol):
                 "--dev", "proton0",
                 "--dev-type", "tun",
                 "--ping", "10",
-                "--ping-exit", "30"
+                "--ping-exit", "30",
+                "--script-security", "2",
+                "--down", "/usr/bin/openvpn-down.sh"
             ],
             stdout=f, stderr=f
         )
