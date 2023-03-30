@@ -259,6 +259,9 @@ def init_cli():
         set_config_value("USER", "dns_leak_protection", 1)
         set_config_value("USER", "custom_dns", None)
         set_config_value("USER", "killswitch", 0)
+        set_config_value("USER", "ignore_ping_restart", 0)
+        set_config_value("USER", "ping", 0)
+        set_config_value("USER", "ping_exit", 0)
 
         with open(PASSFILE, "w") as f:
             f.write("{0}+{1}\n{2}".format(ovpn_username, CLIENT_SUFFIX, ovpn_password))
