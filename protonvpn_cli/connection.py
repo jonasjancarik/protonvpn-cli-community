@@ -478,18 +478,29 @@ def openvpn_connect(servername, protocol):
     patch_passfile(PASSFILE)
 
     with open(os.path.join(CONFIG_DIR, "ovpn.log"), "w+") as f:
-        subprocess.Popen(
-            [
-                "openvpn",
-                "--config", OVPN_FILE,
-                "--auth-user-pass", PASSFILE,
-                "--dev", "proton0",
-                "--dev-type", "tun",
-                "--ping", "10",
-                "--ping-exit", "30",
+        args = [
+            "openvpn",
+            "--config", OVPN_FILE,
+            "--auth-user-pass", PASSFILE,
+            "--dev", "proton0",
+            "--dev-type", "tun"
+        ]
+
+        if int(get_config_value("USER", "ping")) and int(get_config_value("USER", "ping_exit")):
+            args.extend([
+                "--ping", get_config_value("USER", "ping"),
+                "--ping-exit", get_config_value("USER", "ping_exit")
+            ])
+
+        # Check if the file /usr/bin/protonvpn-down.sh exists, if yes, add it to the args
+        if os.path.isfile("/usr/bin/protonvpn-down.sh"):
+            args.extend([
                 "--script-security", "2",
-                "--down", "/usr/bin/openvpn-down.sh"
-            ],
+                "--down", "/usr/bin/protonvpn-down.sh"
+            ])
+
+        subprocess.Popen(
+            args,
             stdout=f, stderr=f
         )
 

@@ -303,13 +303,16 @@ def create_openvpn_config(serverlist, protocol, ports):
     # IPv6
     ipv6_disabled = is_ipv6_disabled()
 
+    ignore_ping_restart = get_config_value("USER", "ignore_ping_restart") == "1"
+
     j2_values = {
         "openvpn_protocol": protocol,
         "serverlist": serverlist,
         "openvpn_ports": ports,
         "split": split,
         "ip_nm_pairs": ip_nm_pairs,
-        "ipv6_disabled": ipv6_disabled
+        "ipv6_disabled": ipv6_disabled,
+        "ignore_ping_restart": ignore_ping_restart
     }
 
     render_j2_template(template_file="openvpn_template.j2", destination_file=OVPN_FILE, values=j2_values)

@@ -321,7 +321,8 @@ def configure_cli():
             "4) DNS Management\n"
             "5) Kill Switch\n"
             "6) Split Tunneling\n"
-            "7) Purge Configuration\n"
+            "7) Lost connection options\n"
+            "8) Purge Configuration\n"
         )
 
         user_choice = input(
@@ -347,8 +348,11 @@ def configure_cli():
         elif user_choice == "6":
             set_split_tunnel()
             break
-        # Make sure this is always the last option
         elif user_choice == "7":
+            set_lost_connection_options()
+            break
+        # Make sure this is always the last option
+        elif user_choice == "8":
             purge_configuration()
             break
         elif user_choice == "":
@@ -660,3 +664,58 @@ def set_split_tunnel():
 
     print()
     print("Split tunneling configuration updated.")
+
+
+def set_lost_connection_options():
+    """Configure options for lost connection."""
+    print()
+    print(
+        "ProtonVPN by default pushes the \"ping-restart\" option to the client with the value of 60,\n"
+        "which means that if the client does not receive a ping from the server for 60 seconds,\n"
+        "the client will restart. If the server does not work anymore, the client will be stuck in a loop,\n"
+        "but won\'t terminate. This can lead to the machine being cut off from the internet."
+    )
+    print()
+    user_choice = input("Ignore ping-restart option pushed by the server? [y/N]: ")
+
+    if user_choice.strip().lower() == "y":
+        ignore_ping_restart = True
+    else:
+        ignore_ping_restart = False
+
+    set_config_value("USER", "ignore_ping_restart", int(ignore_ping_restart))
+
+    if ignore_ping_restart:
+
+        apply_ping_exit = input("Apply ping-exit option? [y/N]: ")
+        if apply_ping_exit.strip().lower() == "y":
+            while True:
+                try:
+                    ping_value = int(input("Please enter the ping value (in seconds): "))
+                    if ping_value < 1:
+                        raise ValueError
+                except ValueError:
+                    print("[!] Invalid value. Please enter a positive integer.")
+
+                try:
+                    ping_exit_value = int(input("Please enter the ping-exit value (in seconds): "))
+                    if ping_exit_value < 1 or ping_exit_value <= ping_value:
+                        raise ValueError
+                    break
+                except ValueError:
+                    print(f"[!] Invalid value. Please enter a positive integer higher than the ping interval (${ping_value}).")
+
+            set_config_value("USER", "ping", ping_value)
+            set_config_value("USER", "ping_exit", ping_exit_value)
+        else:
+            set_config_value("USER", "ping", 0)
+            set_config_value("USER", "ping_exit", 0)
+
+    else:
+        print('Ping-exit will not be applied with the ping-restart option not ignored.')
+
+        set_config_value("USER", "ping", 0)
+        set_config_value("USER", "ping_exit", 0)
+
+    print()
+    print("Lost connection options updated.")
