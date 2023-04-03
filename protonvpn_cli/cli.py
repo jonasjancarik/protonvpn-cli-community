@@ -3,13 +3,13 @@ A CLI for ProtonVPN.
 
 Usage:
     protonvpn init
-    protonvpn (c | connect) [<servername>] [-p <protocol>]
-    protonvpn (c | connect) [-f | --fastest] [-p <protocol>]
-    protonvpn (c | connect) [--cc <code>] [-p <protocol>]
-    protonvpn (c | connect) [--sc] [-p <protocol>]
-    protonvpn (c | connect) [--p2p] [-p <protocol>]
-    protonvpn (c | connect) [--tor] [-p <protocol>]
-    protonvpn (c | connect) [-r | --random] [-p <protocol>]
+    protonvpn (c | connect) [<servername>] [-p <protocol>] [--st | --split-tunnel <IP>]
+    protonvpn (c | connect) [-f | --fastest] [-p <protocol>] [--st | --split-tunnel <IP>]
+    protonvpn (c | connect) [--cc <code>] [-p <protocol>] [--st | --split-tunnel <IP>]
+    protonvpn (c | connect) [--sc] [-p <protocol>] [--st | --split-tunnel <IP>]
+    protonvpn (c | connect) [--p2p] [-p <protocol>] [--st | --split-tunnel <IP>]
+    protonvpn (c | connect) [--tor] [-p <protocol>] [--st | --split-tunnel <IP>]
+    protonvpn (c | connect) [-r | --random] [-p <protocol>] [--st | --split-tunnel <IP>]
     protonvpn (r | reconnect)
     protonvpn (d | disconnect)
     protonvpn (s | status)
@@ -20,15 +20,16 @@ Usage:
     protonvpn (-v | --version)
 
 Options:
-    -f, --fastest       Select the fastest ProtonVPN server.
-    -r, --random        Select a random ProtonVPN server.
-    --cc CODE           Determine the country for fastest connect.
-    --sc                Connect to the fastest Secure-Core server.
-    --p2p               Connect to the fastest torrent server.
-    --tor               Connect to the fastest Tor server.
-    -p PROTOCOL         Determine the protocol (UDP or TCP).
-    -h, --help          Show this help message.
-    -v, --version       Display version.
+    -f, --fastest               Select the fastest ProtonVPN server.
+    -r, --random                Select a random ProtonVPN server.
+    --cc CODE                   Determine the country for fastest connect.
+    --sc                        Connect to the fastest Secure-Core server.
+    --p2p                       Connect to the fastest torrent server.
+    --tor                       Connect to the fastest Tor server.
+    -p PROTOCOL                 Determine the protocol (UDP or TCP).
+    -h, --help                  Show this help message.
+    -v, --version               Display version.
+    --st, --split-tunnel IP     Split tunnel IP address, CIDR or domain. Comma-separated.
 
 Commands:
     init                Initialize a ProtonVPN profile.
@@ -62,7 +63,7 @@ from .constants import (CLIENT_SUFFIX, CONFIG_DIR, CONFIG_FILE, PASSFILE,
                         SPLIT_TUNNEL_FILE, USER, VERSION)
 from .logger import logger
 from .utils import (change_file_owner, check_init, check_root,
-                    get_config_value, is_valid_ip, pull_server_data,
+                    get_config_value, is_valid_ip, is_valid_domain, pull_server_data,
                     set_config_value, wait_for_network)
 
 
@@ -114,6 +115,17 @@ def cli():
         protocol = args.get("-p")
         if protocol is not None and protocol.lower().strip() in ["tcp", "udp"]:
             protocol = protocol.lower().strip()
+
+        # Split tunneling
+        if args.get("--split-tunnel"):
+            split_tunnel = args.get("--split-tunnel")
+            # on-the-fly split tunneling
+            for i in split_tunnel.split(","):
+                if not (is_valid_ip(i) or is_valid_domain(i)):
+                    print("[!] Invalid split tunnel option. You must supply a valid IP address, CIDR or domain.")
+                    logger.debug("Invalid split tunnel option.")
+                    sys.exit(1)
+            os.environ["PVPN_SPLIT_TUNNEL"] = split_tunnel
 
         if args.get("--random"):
             connection.random_c(protocol)
@@ -324,7 +336,7 @@ def configure_cli():
             "4) DNS Management\n"
             "5) Kill Switch\n"
             "6) Split Tunneling\n"
-            "7) Lost connection options\n"
+            "7) Lost Connection Options\n"
             "8) Purge Configuration\n"
         )
 
@@ -632,21 +644,22 @@ def set_split_tunnel():
         set_config_value("USER", "split_tunnel", 1)
 
         while True:
-            ip = input(
-                "Please enter an IP or CIDR to exclude from VPN.\n"
+            user_input = input(
+                "Please enter an IP, CIDR or domain to exclude from VPN.\n"
                 "Or leave empty to stop: "
             ).strip()
 
-            if ip == "":
+            if user_input == "":
                 break
 
-            if not is_valid_ip(ip):
-                print("[!] Invalid IP")
+            i = user_input.strip()
+            if not (is_valid_domain(i) or is_valid_ip(i)):
+                print(f"[!] Invalid input: ({i}).")
                 print()
                 continue
-
-            with open(SPLIT_TUNNEL_FILE, "a") as f:
-                f.write("\n{0}".format(ip))
+            else:
+                with open(SPLIT_TUNNEL_FILE, "a") as f:
+                    f.write(f"\n{i.strip()}")
 
         if os.path.isfile(SPLIT_TUNNEL_FILE):
             change_file_owner(SPLIT_TUNNEL_FILE)
@@ -660,7 +673,7 @@ def set_split_tunnel():
         set_config_value("USER", "split_tunnel", 0)
 
         if os.path.isfile(SPLIT_TUNNEL_FILE):
-            clear_config = input("Remove split tunnel configuration? [y/N]: ")
+            clear_config = user_choice("Remove split tunnel configuration? [y/N]: ")
 
             if clear_config.strip().lower() == "y":
                 os.remove(SPLIT_TUNNEL_FILE)
@@ -715,7 +728,10 @@ def set_lost_connection_options():
             set_config_value("USER", "ping_exit", 0)
 
     else:
-        print('Ping-exit will not be applied with the ping-restart option not ignored.')
+        print(
+            "[!] Ping-exit can't be used with the ping-restart option not ignored.\n"
+            + "[!] Ping-exit has been disabled.\n"
+        )
 
         set_config_value("USER", "ping", 0)
         set_config_value("USER", "ping_exit", 0)
