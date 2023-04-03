@@ -20,6 +20,7 @@ from .constants import (
     VERSION, OVPN_FILE, CLIENT_SUFFIX
 )
 import distro
+import socket
 
 
 def call_api(endpoint, json_format=True, handle_errors=True):
@@ -272,31 +273,46 @@ def create_openvpn_config(serverlist, protocol, ports):
     """
 
     # Split Tunneling
+    content = []
+
     try:
         if get_config_value("USER", "split_tunnel") == "1":
             split = True
+            with open(SPLIT_TUNNEL_FILE, "r") as f:
+                content = f.readlines()            
         else:
             split = False
     except KeyError:
         split = False
 
+    if os.getenv("PVPN_SPLIT_TUNNEL"):
+        split = True
+
     ip_nm_pairs = []
 
     if split:
-        with open(SPLIT_TUNNEL_FILE, "r") as f:
-            content = f.readlines()
+
+        if os.getenv("PVPN_SPLIT_TUNNEL"):
+            content += [item.strip() for item in os.getenv("PVPN_SPLIT_TUNNEL").split(",")]
 
         for line in content:
             line = line.rstrip("\n")
             netmask = "255.255.255.255"
-            if not is_valid_ip(line):
+            if not (is_valid_ip(line) or is_valid_domain(line)):
                 logger.debug("[!] '{0}' is invalid. Skipped.".format(line))
                 continue
-            if "/" in line:
-                ip, cidr = line.split("/")
-                netmask = cidr_to_netmask(int(cidr))
+            if is_valid_domain(line):
+                try:
+                    ip = socket.gethostbyname(line)
+                except socket.gaierror:
+                    logger.debug("[!] '{0}' is invalid. Skipped.".format(line))
+                    continue
             else:
-                ip = line
+                if "/" in line:
+                    ip, cidr = line.split("/")
+                    netmask = cidr_to_netmask(int(cidr))
+                else:
+                    ip = line
 
             ip_nm_pairs.append({"ip": ip, "nm": netmask})
 
@@ -494,6 +510,32 @@ def is_valid_ip(ipaddr):
     if valid_ip_re.match(ipaddr):
         return True
 
+    else:
+        return False
+
+
+def is_valid_domain(domain):
+    """
+    Validates a domain name. Returns True if the domain is valid, otherwise False.
+
+    Args:
+        domain (str): A domain name as a string. Whitespaces will be stripped.
+
+    Returns:
+        bool: Returns True if domain is valid, otherwise False.
+
+    Example:
+        >>> is_valid_domain("google.com")
+        True
+        >>> is_valid_domain("invalid_domain")
+        False
+    """
+
+    # Check for valid characters and length in each domain part
+    pattern = re.compile(r"^(?:(?!-)[A-Za-z0-9-]{1,63}(?<!-)\.){1,}(?!-)[A-Za-z0-9-]{1,63}(?<!-)$")
+
+    if pattern.match(domain.strip()):
+        return True
     else:
         return False
 
