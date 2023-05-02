@@ -295,6 +295,9 @@ def create_openvpn_config(serverlist, protocol, ports):
         if os.getenv("PVPN_SPLIT_TUNNEL"):
             content += [item.strip() for item in os.getenv("PVPN_SPLIT_TUNNEL").split(",")]
 
+        # deduplicate content
+        content = list(set(content))
+
         for line in content:
             line = line.rstrip("\n")
             netmask = "255.255.255.255"
@@ -326,6 +329,7 @@ def create_openvpn_config(serverlist, protocol, ports):
         "serverlist": serverlist,
         "openvpn_ports": ports,
         "split": split,
+        "split_type": get_config_value("USER", "split_type"),
         "ip_nm_pairs": ip_nm_pairs,
         "ipv6_disabled": ipv6_disabled,
         "ignore_ping_restart": ignore_ping_restart

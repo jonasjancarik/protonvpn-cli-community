@@ -643,9 +643,57 @@ def set_split_tunnel():
 
         set_config_value("USER", "split_tunnel", 1)
 
+        # ask user whether they want the split tunnel to be a blakclist or whitelist
+        while True:
+            print(
+                "\nDo you want to use a blacklist or a whitelist?\n\n"
+                "Blacklist means the VPN will not be used for the specified endpoints,\n"
+                "while in the whitelist mode, the VPN will only be used for those endpoints.\n"
+                "\n"
+                "1) Blacklist\n"
+                "2) Whitelist"
+            )
+
+            print()
+            user_choice = input(
+                "Please enter your choice or leave empty to quit: "
+            )
+            user_choice = user_choice.lower().strip()
+            if user_choice == "1":
+                split_type = 'blacklist'
+                break
+            elif user_choice == "2":
+                split_type = 'whitelist'
+                break
+            elif user_choice == "":
+                print("Quitting configuration.")
+                sys.exit(0)
+            else:
+                print(
+                    "[!] Invalid choice. Please enter the number of your choice.\n"
+                )
+                time.sleep(0.5)
+
+        set_config_value("USER", "split_type", split_type)
+
+        # check if the split tunnel file exists and if it's not empty
+        if os.path.isfile(SPLIT_TUNNEL_FILE):
+            with open(SPLIT_TUNNEL_FILE, "r") as f:
+                if f.read().strip() != "":
+                    print(
+                        f"\n[!] Split tunnel file ({SPLIT_TUNNEL_FILE}) already exists and is not empty.\n"
+                        + "[!] Do you want to overwrite it?\n"
+                    )
+                    user_choice = input("Overwrite? [y/N]: ")
+                    if user_choice.strip().lower() != "y":
+                        print("Quitting configuration.")
+                        sys.exit(0)
+
+        split_tunnel_file_wiped = False
+
         while True:
             user_input = input(
-                "Please enter an IP, CIDR or domain to exclude from VPN.\n"
+                f"\nPlease enter an IP, CIDR or domain to {'exclude from VPN' if split_type == 'blacklist' else 'use VPN for'}.\n"
                 "Or leave empty to stop: "
             ).strip()
 
@@ -658,6 +706,10 @@ def set_split_tunnel():
                 print()
                 continue
             else:
+                if not split_tunnel_file_wiped:
+                    with open(SPLIT_TUNNEL_FILE, "w") as f:
+                        f.write("")
+                    split_tunnel_file_wiped = True
                 with open(SPLIT_TUNNEL_FILE, "a") as f:
                     f.write(f"\n{i.strip()}")
 

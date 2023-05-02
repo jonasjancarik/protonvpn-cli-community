@@ -62,10 +62,12 @@ pull-filter ignore "route-ipv6"
 {%- endif %}
 
 {%- if split %}
-
 # Split Tunneling
+{%- if split_type == "whitelist" %}
+route-nopull
+{%- endif %}
 {%- for ip_nm_pair in ip_nm_pairs %}
-route {{ ip_nm_pair.ip }} {{ ip_nm_pair.nm }} net_gateway
+route {{ ip_nm_pair.ip }} {{ ip_nm_pair.nm }} {{ "vpn_gateway" if split_type == "whitelist" else "net_gateway" }}
 {%- endfor %}
 {%- endif %}
 

@@ -471,7 +471,8 @@ def openvpn_connect(servername, protocol):
 
     disconnect(passed=True)
 
-    old_ip, _ = get_ip_info()
+    if not int(get_config_value("USER", "split_tunnel")) or get_config_value("USER", "split_type") == 'blacklist':
+        old_ip, _ = get_ip_info()
 
     print("Connecting to {0} via {1}...".format(servername, protocol.upper()))
 
@@ -533,10 +534,11 @@ def openvpn_connect(servername, protocol):
                 manage_killswitch("enable", proto=protocol.lower(),
                                   port=port[protocol.lower()])
                 new_ip, _ = get_ip_info()
-                if old_ip == new_ip:
-                    logger.debug("Failed to connect. IP didn't change")
-                    print("[!] Connection failed. Reverting all changes...")
-                    disconnect(passed=True)
+                if not int(get_config_value("USER", "split_tunnel")) or get_config_value("USER", "split_type") == 'blacklist':
+                    if old_ip == new_ip:
+                        logger.debug("Failed to connect. IP didn't change")
+                        print("[!] Connection failed. Reverting all changes...")
+                        disconnect(passed=True)
                 print("Connected!")
                 logger.debug("Connection successful")
                 break
