@@ -306,7 +306,7 @@ def create_openvpn_config(serverlist, protocol, ports):
                 continue
             if is_valid_domain(line):
                 try:
-                    ip = socket.gethostbyname(line)
+                    ip = socket.gethostbyname_ex(line)[2]  # returns a list
                 except socket.gaierror:
                     logger.debug("[!] '{0}' is invalid. Skipped.".format(line))
                     continue
@@ -317,7 +317,12 @@ def create_openvpn_config(serverlist, protocol, ports):
                 else:
                     ip = line
 
-            ip_nm_pairs.append({"ip": ip, "nm": netmask})
+            # check if ip is a string or a list (multiple IPs)
+            if isinstance(ip, str):
+                ip_nm_pairs.append({"ip": ip, "nm": netmask})
+            else:
+                for item in ip:
+                    ip_nm_pairs.append({"ip": item, "nm": netmask})
 
     # IPv6
     ipv6_disabled = is_ipv6_disabled()
