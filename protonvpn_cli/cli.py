@@ -725,7 +725,7 @@ def set_split_tunnel():
         set_config_value("USER", "split_tunnel", 0)
 
         if os.path.isfile(SPLIT_TUNNEL_FILE):
-            clear_config = user_choice("Remove split tunnel configuration? [y/N]: ")
+            clear_config = input("Remove split tunnel configuration? [y/N]: ")
 
             if clear_config.strip().lower() == "y":
                 os.remove(SPLIT_TUNNEL_FILE)
