@@ -5,7 +5,7 @@ Usage:
     protonvpn init
     protonvpn (c | connect) [<servername>] [-p <protocol>] [--st | --split-tunnel <IP>]
     protonvpn (c | connect) [-f | --fastest] [-p <protocol>] [--st | --split-tunnel <IP>]
-    protonvpn (c | connect) [--cc <code>] [-p <protocol>] [--st | --split-tunnel <IP>]
+    protonvpn (c | connect) [--cc <code>] [-p <protocol>] [--st | --split-tunnel <IP>] [--stt | --split-tunnel-type <split_type>]
     protonvpn (c | connect) [--sc] [-p <protocol>] [--st | --split-tunnel <IP>]
     protonvpn (c | connect) [--p2p] [-p <protocol>] [--st | --split-tunnel <IP>]
     protonvpn (c | connect) [--tor] [-p <protocol>] [--st | --split-tunnel <IP>]
@@ -20,16 +20,17 @@ Usage:
     protonvpn (-v | --version)
 
 Options:
-    -f, --fastest               Select the fastest ProtonVPN server.
-    -r, --random                Select a random ProtonVPN server.
-    --cc CODE                   Determine the country for fastest connect.
-    --sc                        Connect to the fastest Secure-Core server.
-    --p2p                       Connect to the fastest torrent server.
-    --tor                       Connect to the fastest Tor server.
-    -p PROTOCOL                 Determine the protocol (UDP or TCP).
-    -h, --help                  Show this help message.
-    -v, --version               Display version.
-    --st, --split-tunnel IP     Split tunnel IP address, CIDR or domain. Comma-separated.
+    -f, --fastest                       Select the fastest ProtonVPN server.
+    -r, --random                        Select a random ProtonVPN server.
+    --cc CODE                           Determine the country for fastest connect.
+    --sc                                Connect to the fastest Secure-Core server.
+    --p2p                               Connect to the fastest torrent server.
+    --tor                               Connect to the fastest Tor server.
+    -p PROTOCOL                         Determine the protocol (UDP or TCP).
+    -h, --help                          Show this help message.
+    -v, --version                       Display version.
+    --st, --split-tunnel IP             Split tunnel IP address, CIDR or domain. Comma-separated.
+    --stt, --split-tunnel-type type     Split tunnel type (whitelist or blacklist).
 
 Commands:
     init                Initialize a ProtonVPN profile.
@@ -126,6 +127,15 @@ def cli():
                     logger.debug("Invalid split tunnel option.")
                     sys.exit(1)
             os.environ["PVPN_SPLIT_TUNNEL"] = split_tunnel
+
+        if args.get("--split-tunnel-type"):
+            split_tunnel_type = args.get("--split-tunnel-type")
+            if split_tunnel_type.lower().strip() in ["whitelist", "blacklist"]:
+                os.environ["PVPN_SPLIT_TUNNEL_TYPE"] = split_tunnel_type.lower().strip()
+            else:
+                print("[!] Invalid split tunnel type. You must supply either 'whitelist' or 'blacklist'.")
+                logger.debug("Invalid split tunnel type.")
+                sys.exit(1)
 
         if args.get("--random"):
             connection.random_c(protocol)
