@@ -537,7 +537,7 @@ def openvpn_connect(servername, protocol):
                 if not int(get_config_value("USER", "split_tunnel")) or get_config_value("USER", "split_type") == 'blacklist':
                     if old_ip == new_ip:
                         logger.debug("Failed to connect. IP didn't change")
-                        print("[!] Connection failed. Reverting all changes...")
+                        print("[!] Connection failed. IP didn't change. Reverting all changes...")
                         disconnect(passed=True)
                 print("Connected!")
                 logger.debug("Connection successful")

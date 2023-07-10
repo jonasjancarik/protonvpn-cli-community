@@ -334,7 +334,7 @@ def create_openvpn_config(serverlist, protocol, ports):
         "serverlist": serverlist,
         "openvpn_ports": ports,
         "split": split,
-        "split_type": get_config_value("USER", "split_type"),
+        "split_type": get_config_value("USER", "split_type") if get_config_value("USER", "split_tunnel") == "1" else "blacklist",  # whitelist is only supported when split tunneling is enabled via configuration, not using CLI args
         "ip_nm_pairs": ip_nm_pairs,
         "ipv6_disabled": ipv6_disabled,
         "ignore_ping_restart": ignore_ping_restart
