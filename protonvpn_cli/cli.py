@@ -2,7 +2,7 @@
 A CLI for ProtonVPN.
 
 Usage:
-    protonvpn init
+    protonvpn init [--username <username>] [--password <password>] [--tier <tier>] [-p <protocol>] [--force]
     protonvpn (c | connect) [<servername>] [-p <protocol>] [--st | --split-tunnel <IP>]
     protonvpn (c | connect) [-f | --fastest] [-p <protocol>] [--st | --split-tunnel <IP>]
     protonvpn (c | connect) [--cc <code>] [-p <protocol>] [--st | --split-tunnel <IP>] [--stt | --split-tunnel-type <split_type>]
@@ -20,35 +20,41 @@ Usage:
     protonvpn (-v | --version)
 
 Options:
-    -f, --fastest                       Select the fastest ProtonVPN server.
-    -r, --random                        Select a random ProtonVPN server.
-    --cc CODE                           Determine the country for fastest connect.
-    --sc                                Connect to the fastest Secure-Core server.
-    --p2p                               Connect to the fastest torrent server.
-    --tor                               Connect to the fastest Tor server.
-    -p PROTOCOL                         Determine the protocol (UDP or TCP).
-    -h, --help                          Show this help message.
-    -v, --version                       Display version.
-    --st, --split-tunnel IP             Split tunnel IP address, CIDR or domain. Comma-separated.
-    --stt, --split-tunnel-type type     Split tunnel type (whitelist or blacklist).
+    --username <username>                OpenVPN username for initialization
+    --password <password>                OpenVPN password for initialization
+    --tier <tier>                        Plan tier for initialization (1=Free, 2=Basic, 3=Plus, 4=Visionary)
+    --force                              Skip confirmation when reinitializing existing profile
+    -f, --fastest                        Select the fastest ProtonVPN server.
+    -r, --random                         Select a random ProtonVPN server.
+    --cc CODE                            Determine the country for fastest connect.
+    --sc                                 Connect to the fastest Secure-Core server.
+    --p2p                                Connect to the fastest torrent server.
+    --tor                                Connect to the fastest Tor server.
+    -p PROTOCOL                          Determine the protocol (UDP or TCP).
+    -h, --help                           Show this help message.
+    -v, --version                        Display version.
+    --st, --split-tunnel IP              Split tunnel IP address, CIDR or domain. Comma-separated.
+    --stt, --split-tunnel-type type      Split tunnel type (whitelist or blacklist).
 
 Commands:
     init                Initialize a ProtonVPN profile.
     c, connect          Connect to a ProtonVPN server.
     r, reconnect        Reconnect to the last server.
     d, disconnect       Disconnect the current session.
-    s, status           Show connection status.
-    configure           Change ProtonVPN-CLI configuration.
-    refresh             Refresh OpenVPN configuration and server data.
-    examples            Print some example commands.
+    s, status          Show connection status.
+    configure          Change ProtonVPN-CLI configuration.
+    refresh            Refresh OpenVPN configuration and server data.
+    examples           Print some example commands.
 
 Arguments:
     <servername>        Servername (CH#4, CH-US-1, HK5-Tor).
 """
+
 import configparser
 import getpass
 import os
 import shutil
+
 # Standard Libraries
 import sys
 import textwrap
@@ -59,13 +65,29 @@ from docopt import docopt
 
 # protonvpn-cli Functions
 from . import connection
+
 # Constants
-from .constants import (CLIENT_SUFFIX, CONFIG_DIR, CONFIG_FILE, PASSFILE,
-                        SPLIT_TUNNEL_FILE, USER, VERSION)
+from .constants import (
+    CLIENT_SUFFIX,
+    CONFIG_DIR,
+    CONFIG_FILE,
+    PASSFILE,
+    SPLIT_TUNNEL_FILE,
+    USER,
+    VERSION,
+)
 from .logger import logger
-from .utils import (change_file_owner, check_init, check_root,
-                    get_config_value, is_valid_ip, is_valid_domain, pull_server_data,
-                    set_config_value, wait_for_network)
+from .utils import (
+    change_file_owner,
+    check_init,
+    check_root,
+    get_config_value,
+    is_valid_ip,
+    is_valid_domain,
+    pull_server_data,
+    set_config_value,
+    wait_for_network,
+)
 
 
 def main():
@@ -123,7 +145,9 @@ def cli():
             # on-the-fly split tunneling
             for i in split_tunnel.split(","):
                 if not (is_valid_ip(i) or is_valid_domain(i)):
-                    print("[!] Invalid split tunnel option. You must supply a valid IP address, CIDR or domain.")
+                    print(
+                        "[!] Invalid split tunnel option. You must supply a valid IP address, CIDR or domain."
+                    )
                     logger.debug("Invalid split tunnel option.")
                     sys.exit(1)
             os.environ["PVPN_SPLIT_TUNNEL"] = split_tunnel
@@ -133,7 +157,9 @@ def cli():
             if split_tunnel_type.lower().strip() in ["whitelist", "blacklist"]:
                 os.environ["PVPN_SPLIT_TUNNEL_TYPE"] = split_tunnel_type.lower().strip()
             else:
-                print("[!] Invalid split tunnel type. You must supply either 'whitelist' or 'blacklist'.")
+                print(
+                    "[!] Invalid split tunnel type. You must supply either 'whitelist' or 'blacklist'."
+                )
                 logger.debug("Invalid split tunnel type.")
                 sys.exit(1)
 
@@ -175,32 +201,62 @@ def cli():
         print_examples()
 
 
+def init_config_file():
+    """Initialize configuration file."""
+    config = configparser.ConfigParser()
+    config["USER"] = {
+        "username": "None",
+        "tier": "None",
+        "default_protocol": "None",
+        "initialized": "0",
+        "dns_leak_protection": "1",
+        "custom_dns": "None",
+        "check_update_interval": "3",
+        "api_domain": "https://api.protonvpn.ch",
+    }
+    config["metadata"] = {
+        "last_api_pull": "0",
+        "last_update_check": str(int(time.time())),
+    }
+
+    with open(CONFIG_FILE, "w") as f:
+        config.write(f)
+    change_file_owner(CONFIG_FILE)
+    logger.debug("pvpn-cli.cfg initialized")
+
+
+def _configure_profile(username, password, tier, protocol="udp"):
+    """Helper function to configure ProtonVPN profile with given credentials"""
+    init_config_file()
+    pull_server_data()
+
+    # Adjust tier value to match API requirements
+    if tier == 4:
+        tier = 3
+    tier -= 1
+
+    # Set configuration values
+    set_config_value("USER", "username", username)
+    set_config_value("USER", "tier", tier)
+    set_config_value("USER", "default_protocol", protocol)
+    set_config_value("USER", "dns_leak_protection", 1)
+    set_config_value("USER", "custom_dns", None)
+    set_config_value("USER", "killswitch", 0)
+    set_config_value("USER", "ignore_ping_restart", 0)
+    set_config_value("USER", "ping", 0)
+    set_config_value("USER", "ping_exit", 0)
+
+    # Create password file
+    with open(PASSFILE, "w") as f:
+        f.write("{0}+{1}\n{2}".format(username, CLIENT_SUFFIX, password))
+        logger.debug("Passfile created")
+        os.chmod(PASSFILE, 0o600)
+
+    set_config_value("USER", "initialized", 1)
+
+
 def init_cli():
     """Initialize the CLI."""
-
-    def init_config_file():
-        """"Initialize configuration file."""
-        config = configparser.ConfigParser()
-        config["USER"] = {
-            "username": "None",
-            "tier": "None",
-            "default_protocol": "None",
-            "initialized": "0",
-            "dns_leak_protection": "1",
-            "custom_dns": "None",
-            "check_update_interval": "3",
-            "api_domain": "https://api.protonvpn.ch",
-        }
-        config["metadata"] = {
-            "last_api_pull": "0",
-            "last_update_check": str(int(time.time())),
-        }
-
-        with open(CONFIG_FILE, "w") as f:
-            config.write(f)
-        change_file_owner(CONFIG_FILE)
-        logger.debug("pvpn-cli.cfg initialized")
-
     check_root()
 
     if not os.path.isdir(CONFIG_DIR):
@@ -208,9 +264,18 @@ def init_cli():
         logger.debug("Config Directory created")
     change_file_owner(CONFIG_DIR)
 
-    # Warn user about reinitialization
+    args = docopt(__doc__, version="ProtonVPN-CLI v{0}".format(VERSION))
+
+    # Check for command line arguments for non-interactive setup
+    cli_username = args.get("--username")
+    cli_password = args.get("--password")
+    cli_tier = args.get("--tier")
+    cli_protocol = args.get("-p", "udp")
+    force_reinit = args.get("--force", False)
+
+    # Warn user about reinitialization unless --force is used
     try:
-        if int(get_config_value("USER", "initialized")):
+        if int(get_config_value("USER", "initialized")) and not force_reinit:
             print("An initialized profile has been found.")
             overwrite = input(
                 "Are you sure you want to overwrite that profile? [y/N]: "
@@ -223,6 +288,33 @@ def init_cli():
             connection.disconnect(passed=True)
     except KeyError:
         pass
+
+    # If all required args are present, use them for non-interactive setup
+    if all([cli_username, cli_password, cli_tier]):
+        logger.debug("Using command line arguments for initialization")
+
+        # Validate inputs
+        try:
+            user_tier = int(cli_tier)
+            if user_tier not in [1, 2, 3, 4]:
+                raise ValueError("tier")
+
+            cli_protocol = cli_protocol.lower()
+            if cli_protocol not in ["udp", "tcp"]:
+                raise ValueError("protocol")
+
+        except ValueError as e:
+            if str(e) == "tier":
+                print(
+                    "[!] Invalid tier value. Must be 1 (Free), 2 (Basic), 3=Plus, 4=Visionary)"
+                )
+            else:
+                print("[!] Invalid protocol value. Must be UDP or TCP")
+            sys.exit(1)
+
+        _configure_profile(cli_username, cli_password, user_tier, cli_protocol)
+        print("Done! Account initialized using provided arguments.")
+        return
 
     term_width = shutil.get_terminal_size()[0]
     print("[ -- PROTONVPN-CLI INIT -- ]\n".center(term_width))
@@ -260,38 +352,11 @@ def init_cli():
     )
     print()
 
-    user_confirmation = input(
-        "Is this information correct? [Y/n]: "
-    ).strip().lower()
+    user_confirmation = input("Is this information correct? [Y/n]: ").strip().lower()
 
     if user_confirmation == "y" or user_confirmation == "":
         print("Writing configuration to disk...")
-        init_config_file()
-
-        pull_server_data()
-
-        # Change user tier to correct value
-        if user_tier == 4:
-            user_tier = 3
-        user_tier -= 1
-
-        set_config_value("USER", "username", ovpn_username)
-        set_config_value("USER", "tier", user_tier)
-        set_config_value("USER", "default_protocol", user_protocol)
-        set_config_value("USER", "dns_leak_protection", 1)
-        set_config_value("USER", "custom_dns", None)
-        set_config_value("USER", "killswitch", 0)
-        set_config_value("USER", "ignore_ping_restart", 0)
-        set_config_value("USER", "ping", 0)
-        set_config_value("USER", "ping_exit", 0)
-
-        with open(PASSFILE, "w") as f:
-            f.write("{0}+{1}\n{2}".format(ovpn_username, CLIENT_SUFFIX, ovpn_password))
-            logger.debug("Passfile created")
-            os.chmod(PASSFILE, 0o600)
-
-        set_config_value("USER", "initialized", 1)
-
+        _configure_profile(ovpn_username, ovpn_password, user_tier, user_protocol)
         print()
         print("Done! Your account has been successfully initialized.")
         logger.debug("Initialization completed.")
@@ -350,9 +415,7 @@ def configure_cli():
             "8) Purge Configuration\n"
         )
 
-        user_choice = input(
-            "Please enter your choice or leave empty to quit: "
-        )
+        user_choice = input("Please enter your choice or leave empty to quit: ")
 
         user_choice = user_choice.lower().strip()
         if user_choice == "1":
@@ -384,18 +447,18 @@ def configure_cli():
             print("Quitting configuration.")
             sys.exit(0)
         else:
-            print(
-                "[!] Invalid choice. Please enter the number of your choice.\n"
-            )
+            print("[!] Invalid choice. Please enter the number of your choice.\n")
             time.sleep(0.5)
 
 
 def purge_configuration():
     """Purges CLI configuration"""
 
-    user_choice = input(
-        "Are you sure you want to purge the configuration? [y/N]: "
-    ).lower().strip()
+    user_choice = (
+        input("Are you sure you want to purge the configuration? [y/N]: ")
+        .lower()
+        .strip()
+    )
 
     if not user_choice == "y":
         return
@@ -417,12 +480,8 @@ def set_username_password(write=False):
 
     # Ask for the password and confirmation until both are the same
     while True:
-        ovpn_password1 = getpass.getpass(
-            "Enter your ProtonVPN OpenVPN password: "
-        )
-        ovpn_password2 = getpass.getpass(
-            "Confirm your ProtonVPN OpenVPN password: "
-        )
+        ovpn_password1 = getpass.getpass("Enter your ProtonVPN OpenVPN password: ")
+        ovpn_password2 = getpass.getpass("Confirm your ProtonVPN OpenVPN password: ")
 
         if not ovpn_password1 == ovpn_password2:
             print()
@@ -539,9 +598,7 @@ def set_dns_protection():
             "3) Disable DNS Management"
         )
         print()
-        user_choice = input(
-            "Please enter your choice or leave empty to quit: "
-        )
+        user_choice = input("Please enter your choice or leave empty to quit: ")
         user_choice = user_choice.lower().strip()
         if user_choice == "1":
             dns_leak_protection = 1
@@ -573,9 +630,7 @@ def set_dns_protection():
             print("Quitting configuration.")
             sys.exit(0)
         else:
-            print(
-                "[!] Invalid choice. Please enter the number of your choice.\n"
-            )
+            print("[!] Invalid choice. Please enter the number of your choice.\n")
             time.sleep(0.5)
 
     set_config_value("USER", "dns_leak_protection", dns_leak_protection)
@@ -592,16 +647,14 @@ def set_killswitch():
             "The Kill Switch will block all network traffic\n"
             "if the VPN connection drops unexpectedly.\n"
             "\n"
-            "Please note that the Kill Switch assumes only one network interface being active.\n" # noqa
+            "Please note that the Kill Switch assumes only one network interface being active.\n"  # noqa
             "\n"
             "1) Enable Kill Switch (Block access to/from LAN)\n"
             "2) Enable Kill Switch (Allow access to/from LAN)\n"
             "3) Disable Kill Switch"
         )
         print()
-        user_choice = input(
-            "Please enter your choice or leave empty to quit: "
-        )
+        user_choice = input("Please enter your choice or leave empty to quit: ")
         user_choice = user_choice.lower().strip()
         if user_choice == "1":
             killswitch = 1
@@ -616,9 +669,7 @@ def set_killswitch():
             print("Quitting configuration.")
             sys.exit(0)
         else:
-            print(
-                "[!] Invalid choice. Please enter the number of your choice.\n"
-            )
+            print("[!] Invalid choice. Please enter the number of your choice.\n")
             time.sleep(0.5)
 
     if killswitch and int(get_config_value("USER", "split_tunnel")):
@@ -665,23 +716,19 @@ def set_split_tunnel():
             )
 
             print()
-            user_choice = input(
-                "Please enter your choice or leave empty to quit: "
-            )
+            user_choice = input("Please enter your choice or leave empty to quit: ")
             user_choice = user_choice.lower().strip()
             if user_choice == "1":
-                split_type = 'blacklist'
+                split_type = "blacklist"
                 break
             elif user_choice == "2":
-                split_type = 'whitelist'
+                split_type = "whitelist"
                 break
             elif user_choice == "":
                 print("Quitting configuration.")
                 sys.exit(0)
             else:
-                print(
-                    "[!] Invalid choice. Please enter the number of your choice.\n"
-                )
+                print("[!] Invalid choice. Please enter the number of your choice.\n")
                 time.sleep(0.5)
 
         set_config_value("USER", "split_type", split_type)
@@ -748,10 +795,10 @@ def set_lost_connection_options():
     """Configure options for lost connection."""
     print()
     print(
-        "ProtonVPN by default pushes the \"ping-restart\" option to the client with the value of 60,\n"
+        'ProtonVPN by default pushes the "ping-restart" option to the client with the value of 60,\n'
         "which means that if the client does not receive a ping from the server for 60 seconds,\n"
         "the client will restart. If the server does not work anymore, the client will be stuck in a loop,\n"
-        "but won\'t terminate. This can lead to the machine being cut off from the internet."
+        "but won't terminate. This can lead to the machine being cut off from the internet."
     )
     print()
     user_choice = input("Ignore ping-restart option pushed by the server? [y/N]: ")
@@ -764,24 +811,29 @@ def set_lost_connection_options():
     set_config_value("USER", "ignore_ping_restart", int(ignore_ping_restart))
 
     if ignore_ping_restart:
-
         apply_ping_exit = input("Apply ping-exit option? [y/N]: ")
         if apply_ping_exit.strip().lower() == "y":
             while True:
                 try:
-                    ping_value = int(input("Please enter the ping value (in seconds): "))
+                    ping_value = int(
+                        input("Please enter the ping value (in seconds): ")
+                    )
                     if ping_value < 1:
                         raise ValueError
                 except ValueError:
                     print("[!] Invalid value. Please enter a positive integer.")
 
                 try:
-                    ping_exit_value = int(input("Please enter the ping-exit value (in seconds): "))
+                    ping_exit_value = int(
+                        input("Please enter the ping-exit value (in seconds): ")
+                    )
                     if ping_exit_value < 1 or ping_exit_value <= ping_value:
                         raise ValueError
                     break
                 except ValueError:
-                    print(f"[!] Invalid value. Please enter a positive integer higher than the ping interval (${ping_value}).")
+                    print(
+                        f"[!] Invalid value. Please enter a positive integer higher than the ping interval (${ping_value})."
+                    )
 
             set_config_value("USER", "ping", ping_value)
             set_config_value("USER", "ping_exit", ping_exit_value)
