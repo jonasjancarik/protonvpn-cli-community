@@ -9,26 +9,38 @@ import re
 import configparser
 import datetime
 import zlib
+
 # External Libraries
 from dialog import Dialog
+
 # protonvpn-cli Functions
 from .logger import logger
 from .utils import (
-    check_init, pull_server_data, is_connected,
-    get_servers, get_server_value, get_config_value,
-    set_config_value, get_ip_info, get_country_name,
-    get_fastest_server, check_update, get_default_nic,
-    get_transferred_data, create_openvpn_config,
-    is_ipv6_disabled, patch_passfile
+    check_init,
+    pull_server_data,
+    is_connected,
+    get_servers,
+    get_server_value,
+    get_config_value,
+    set_config_value,
+    get_ip_info,
+    get_country_name,
+    get_fastest_server,
+    check_update,
+    get_default_nic,
+    get_transferred_data,
+    create_openvpn_config,
+    is_ipv6_disabled,
+    patch_passfile,
 )
+
 # Constants
-from .constants import (
-    CONFIG_DIR, OVPN_FILE, PASSFILE, CONFIG_FILE
-)
+from .constants import CONFIG_DIR, OVPN_FILE, PASSFILE, CONFIG_FILE
 
 
 def dialog():
     """Connect to a server with a dialog menu."""
+
     def show_dialog(headline, choices, stop=False):
         """Show the dialog and process response."""
         d = Dialog(dialog="dialog")
@@ -46,12 +58,11 @@ def dialog():
     logger.debug("Starting dialog connect")
 
     # Check if dialog is installed
-    dialog_check = subprocess.run(['which', 'dialog'],
-                                  stdout=subprocess.PIPE,
-                                  stderr=subprocess.PIPE)
+    dialog_check = subprocess.run(
+        ["which", "dialog"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     if not dialog_check.returncode == 0:
-        print("'dialog' not found. "
-              "Please install dialog via your package manager.")
+        print("'dialog' not found. " "Please install dialog via your package manager.")
         logger.debug("dialog not found")
         sys.exit(1)
 
@@ -97,18 +108,15 @@ def dialog():
     # Second dialog
     # lambda sorts servers by Load instead of name
     choices = []
-    country_servers = sorted(countries[country],
-                             key=lambda s: get_server_value(
-                                 s, "Load", servers))
+    country_servers = sorted(
+        countries[country], key=lambda s: get_server_value(s, "Load", servers)
+    )
 
     for servername in country_servers:
-
-        load = str(
-            get_server_value(servername, "Load", servers)
-        ).rjust(3, " ")
+        load = str(get_server_value(servername, "Load", servers)).rjust(3, " ")
 
         servers_features = []
-        feat = int(get_server_value(servername, 'Features', servers))
+        feat = int(get_server_value(servername, "Features", servers))
         for bit_flag in features:
             if (feat & bit_flag) != 0:
                 servers_features.append(features[bit_flag])
@@ -116,22 +124,23 @@ def dialog():
         if len(servers_features) == 0:
             servers_features.append("Normal")
 
-        tier = server_tiers[
-            get_server_value(servername, "Tier", servers)
-        ]
+        tier = server_tiers[get_server_value(servername, "Tier", servers)]
 
-        choices.append((servername, "Load: {0}% | {1} | {2}".format(
-            load, tier, ", ".join(servers_features)
-        )))
+        choices.append(
+            (
+                servername,
+                "Load: {0}% | {1} | {2}".format(
+                    load, tier, ", ".join(servers_features)
+                ),
+            )
+        )
 
     server_result = show_dialog("Choose the server to connect:", choices)
 
     logger.debug("Server Choice: {0}".format(server_result))
 
     protocol_result = show_dialog(
-        "Choose a protocol:", [
-            ("UDP", "Better Speed"), ("TCP", "Better Reliability")
-        ]
+        "Choose a protocol:", [("UDP", "Better Speed"), ("TCP", "Better Reliability")]
     )
 
     logger.debug("Protocol Choice: {0}".format(protocol_result))
@@ -201,7 +210,10 @@ def country_f(country_code, protocol=None):
     # Filter out excluded features and countries
     server_pool = []
     for server in servers:
-        if server["Features"] not in excluded_features and server["ExitCountry"] == country_code:
+        if (
+            server["Features"] not in excluded_features
+            and server["ExitCountry"] == country_code
+        ):
             server_pool.append(server)
 
     if len(server_pool) == 0:
@@ -218,9 +230,7 @@ def country_f(country_code, protocol=None):
 
 def feature_f(feature, protocol=None):
     """Connect to the fastest server in a specific country."""
-    logger.debug(
-        "Starting fastest feature connect with feature {0}".format(feature)
-    )
+    logger.debug("Starting fastest feature connect with feature {0}".format(feature))
 
     if not protocol:
         protocol = get_config_value("USER", "default_protocol")
@@ -253,9 +263,7 @@ def direct(user_input, protocol=None):
     # For short format (UK-03/HK#5-Tor | Normal Servers/Tor Servers)
     re_short = re.compile(r"^((\w\w)(-|#)?(\d{1,3})-?(TOR)?)$")
     # For long format (IS-DE-01 | Secure-Core/Free/US Servers)
-    re_long = re.compile(
-        r"^(((\w\w)(-|#)?([A-Z]{2}|FREE))(-|#)?(\d{1,3})-?(TOR)?)$"
-    )
+    re_long = re.compile(r"^(((\w\w)(-|#)?([A-Z]{2}|FREE))(-|#)?(\d{1,3})-?(TOR)?)$")
 
     user_input = user_input.upper()
 
@@ -265,17 +273,18 @@ def direct(user_input, protocol=None):
         country_code = user_server.group(2)
         number = user_server.group(4).lstrip("0")
         tor = user_server.group(5)
-        servername = "{0}#{1}".format(country_code, number) +\
-                     "{0}".format('-' + tor if tor is not None else '')
+        servername = "{0}#{1}".format(country_code, number) + "{0}".format(
+            "-" + tor if tor is not None else ""
+        )
     elif re_long.search(user_input):
         user_server = re_long.search(user_input)
         country_code = user_server.group(3)
         country_code2 = user_server.group(5)
         number = user_server.group(7).lstrip("0")
         tor = user_server.group(8)
-        servername = "{0}-{1}#{2}".format(country_code,
-                                          country_code2, number) + \
-                     "{0}".format('-' + tor if tor is not None else '')
+        servername = "{0}-{1}#{2}".format(
+            country_code, country_code2, number
+        ) + "{0}".format("-" + tor if tor is not None else "")
     else:
         print(
             "[!] '{0}' is not a valid servername\n".format(user_input)
@@ -337,8 +346,7 @@ def disconnect(passed=False):
                     subprocess.run(["pkill", "openvpn"])
                     time.sleep(0.2)
                 else:
-                    subprocess.run(
-                        ["pkill", "-9", "openvpn"])
+                    subprocess.run(["pkill", "-9", "openvpn"])
                     logger.debug("SIGKILL sent")
                     break
             else:
@@ -393,14 +401,16 @@ def status():
         connected_protocol = get_config_value("metadata", "connected_proto")
         dns_server = get_config_value("metadata", "dns_server")
     except KeyError:
-        print("It looks like there never was a connection.\n"
-              "Please connect with 'protonvpn connect' first.")
+        print(
+            "It looks like there never was a connection.\n"
+            "Please connect with 'protonvpn connect' first."
+        )
         sys.exit(1)
 
     # Check if the VPN Server is reachable
-    ping = subprocess.run(["ping", "-c", "1", dns_server],
-                          stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE)
+    ping = subprocess.run(
+        ["ping", "-c", "1", dns_server], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     if ping.returncode != 0:
         logger.debug("Could not reach VPN server")
         print("[!] Could not reach the VPN Server")
@@ -429,8 +439,7 @@ def status():
         killswitch_on = False
     killswitch_status = "Enabled" if killswitch_on else "Disabled"
     # Turn time into human readable format and trim microseconds
-    connection_time = str(datetime.timedelta(
-        seconds=connection_time)).split(".")[0]
+    connection_time = str(datetime.timedelta(seconds=connection_time)).split(".")[0]
 
     tx_amount, rx_amount = get_transferred_data()
 
@@ -441,7 +450,9 @@ def status():
         + "Time:         {0}\n".format(connection_time)
         + "IP:           {0}\n".format(ip)
         + "Server:       {0}\n".format(connected_server)
-        + "Features:     {0}\n".format(all_features[feature])
+        + "Features:     {0}\n".format(
+            all_features.get(feature, f"Unknown ({feature})")
+        )
         + "Protocol:     {0}\n".format(connected_protocol.upper())
         + "Kill Switch:  {0}\n".format(killswitch_status)
         + "Country:      {0}\n".format(country)
@@ -456,9 +467,7 @@ def openvpn_connect(servername, protocol):
     """Connect to VPN Server."""
 
     logger.debug("Initiating OpenVPN connection")
-    logger.debug(
-        "Connecting to {0} via {1}".format(servername, protocol.upper())
-    )
+    logger.debug("Connecting to {0} via {1}".format(servername, protocol.upper()))
 
     port = {"udp": 1194, "tcp": 443}
 
@@ -467,11 +476,16 @@ def openvpn_connect(servername, protocol):
     ip_list = [subserver["EntryIP"] for subserver in subservers]
 
     # Ports gets casted to a list instead of just a single port to make it iterable
-    create_openvpn_config(serverlist=ip_list, protocol=protocol, ports=[port[protocol.lower()]])
+    create_openvpn_config(
+        serverlist=ip_list, protocol=protocol, ports=[port[protocol.lower()]]
+    )
 
     disconnect(passed=True)
 
-    if not int(get_config_value("USER", "split_tunnel")) or get_config_value("USER", "split_type") == 'blacklist':
+    if (
+        not int(get_config_value("USER", "split_tunnel"))
+        or get_config_value("USER", "split_type") == "blacklist"
+    ):
         old_ip, _ = get_ip_info()
 
     print("Connecting to {0} via {1}...".format(servername, protocol.upper()))
@@ -481,29 +495,35 @@ def openvpn_connect(servername, protocol):
     with open(os.path.join(CONFIG_DIR, "ovpn.log"), "w+") as f:
         args = [
             "openvpn",
-            "--config", OVPN_FILE,
-            "--auth-user-pass", PASSFILE,
-            "--dev", "proton0",
-            "--dev-type", "tun"
+            "--config",
+            OVPN_FILE,
+            "--auth-user-pass",
+            PASSFILE,
+            "--dev",
+            "proton0",
+            "--dev-type",
+            "tun",
         ]
 
-        if int(get_config_value("USER", "ping")) and int(get_config_value("USER", "ping_exit")):
-            args.extend([
-                "--ping", get_config_value("USER", "ping"),
-                "--ping-exit", get_config_value("USER", "ping_exit")
-            ])
+        if int(get_config_value("USER", "ping")) and int(
+            get_config_value("USER", "ping_exit")
+        ):
+            args.extend(
+                [
+                    "--ping",
+                    get_config_value("USER", "ping"),
+                    "--ping-exit",
+                    get_config_value("USER", "ping_exit"),
+                ]
+            )
 
         # Check if the file /usr/bin/protonvpn-down.sh exists, if yes, add it to the args
         if os.path.isfile("/usr/bin/protonvpn-down.sh"):
-            args.extend([
-                "--script-security", "2",
-                "--down", "/usr/bin/protonvpn-down.sh"
-            ])
+            args.extend(
+                ["--script-security", "2", "--down", "/usr/bin/protonvpn-down.sh"]
+            )
 
-        subprocess.Popen(
-            args,
-            stdout=f, stderr=f
-        )
+        subprocess.Popen(args, stdout=f, stderr=f)
 
     logger.debug("OpenVPN process started")
     time_start = time.time()
@@ -516,8 +536,7 @@ def openvpn_connect(servername, protocol):
             if "Initialization Sequence Completed" in content:
                 # Enable DNS Leak Protection
                 dns_dhcp_regex = re.compile(
-                    r"(dhcp-option DNS )"
-                    r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
+                    r"(dhcp-option DNS )" r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
                 )
 
                 dns_dhcp = dns_dhcp_regex.search(content)
@@ -531,13 +550,19 @@ def openvpn_connect(servername, protocol):
                         "[!] Make sure you are protected!"
                     )
                 manage_ipv6("disable")
-                manage_killswitch("enable", proto=protocol.lower(),
-                                  port=port[protocol.lower()])
+                manage_killswitch(
+                    "enable", proto=protocol.lower(), port=port[protocol.lower()]
+                )
                 new_ip, _ = get_ip_info()
-                if not int(get_config_value("USER", "split_tunnel")) or get_config_value("USER", "split_type") == 'blacklist':
+                if (
+                    not int(get_config_value("USER", "split_tunnel"))
+                    or get_config_value("USER", "split_type") == "blacklist"
+                ):
                     if old_ip == new_ip:
                         logger.debug("Failed to connect. IP didn't change")
-                        print("[!] Connection failed. IP didn't change. Reverting all changes...")
+                        print(
+                            "[!] Connection failed. IP didn't change. Reverting all changes..."
+                        )
                         disconnect(passed=True)
                 print("Connected!")
                 logger.debug("Connection successful")
@@ -611,8 +636,8 @@ def manage_dns(mode, dns_server=False):
         # Remove previous nameservers
         dns_regex = re.compile(r"^nameserver .*$")
 
-        with open(backupfile, 'r') as backup_handle:
-            with open(resolvconf_path, 'w') as resolvconf_handle:
+        with open(backupfile, "r") as backup_handle:
+            with open(resolvconf_path, "w") as resolvconf_handle:
                 for line in backup_handle:
                     if not dns_regex.search(line):
                         resolvconf_handle.write(line)
@@ -640,7 +665,6 @@ def manage_dns(mode, dns_server=False):
     elif mode == "restore":
         logger.debug("Restoring DNS")
         if os.path.isfile(backupfile):
-
             # Check if the file changed since connection
             oldhash = get_config_value("metadata", "resolvconf_hash")
             with open(resolvconf_path, "rb") as f:
@@ -657,8 +681,9 @@ def manage_dns(mode, dns_server=False):
         else:
             logger.debug("No Backupfile found")
     else:
-        raise Exception("Invalid argument provided. "
-                        "Mode must be 'restore' or 'leak_protection'")
+        raise Exception(
+            "Invalid argument provided. " "Mode must be 'restore' or 'leak_protection'"
+        )
 
 
 def manage_ipv6(mode):
@@ -674,7 +699,6 @@ def manage_ipv6(mode):
     ip6tables_backupfile = os.path.join(CONFIG_DIR, "ip6tables.backup")
 
     if mode == "disable":
-
         logger.debug("Disabling IPv6")
         # Needs to be removed eventually. I'll leave it in for now
         # so it still properly restores the IPv6 address the old way
@@ -691,8 +715,7 @@ def manage_ipv6(mode):
 
         # Backing up ip6ables rules
         logger.debug("Backing up ip6tables rules")
-        ip6tables_rules = subprocess.run(["ip6tables-save"],
-                                         stdout=subprocess.PIPE)
+        ip6tables_rules = subprocess.run(["ip6tables-save"], stdout=subprocess.PIPE)
 
         if "COMMIT" in ip6tables_rules.stdout.decode():
             with open(ip6tables_backupfile, "wb") as f:
@@ -725,9 +748,9 @@ def manage_ipv6(mode):
             manage_ipv6("legacy_restore")
         if os.path.isfile(ip6tables_backupfile):
             subprocess.run(
-                "ip6tables-restore < {0}".format(
-                    ip6tables_backupfile
-                ), shell=True, stdout=subprocess.PIPE
+                "ip6tables-restore < {0}".format(ip6tables_backupfile),
+                shell=True,
+                stdout=subprocess.PIPE,
             )
             logger.debug("ip6tables restored")
             os.remove(ip6tables_backupfile)
@@ -748,8 +771,10 @@ def manage_ipv6(mode):
             ipv6_addr = lines[1].strip()
 
         ipv6_info = subprocess.run(
-            "ip addr show dev {0} | grep '\<inet6.*global\>'".format(default_nic), # noqa
-            shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE
+            "ip addr show dev {0} | grep '\<inet6.*global\>'".format(default_nic),  # noqa
+            shell=True,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
         )
 
         has_ipv6 = True if ipv6_info.returncode == 0 else False
@@ -761,13 +786,13 @@ def manage_ipv6(mode):
 
         ipv6_enable = subprocess.run(
             "sysctl -w net.ipv6.conf.{0}.disable_ipv6=0".format(default_nic),
-            shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE
+            shell=True,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
         )
 
         if not ipv6_enable.returncode == 0:
-            print(
-                "[!] There was an error with restoring the IPv6 configuration"
-            )
+            print("[!] There was an error with restoring the IPv6 configuration")
             logger.debug("IPv6 restoration error: sysctl")
             logger.debug("stdout: {0}".format(ipv6_enable.stdout))
             logger.debug("stderr: {0}".format(ipv6_enable.stderr))
@@ -775,13 +800,13 @@ def manage_ipv6(mode):
 
         ipv6_restore_address = subprocess.run(
             "ip addr add {0} dev {1}".format(ipv6_addr, default_nic),
-            shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE
+            shell=True,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
         )
 
         if not ipv6_restore_address.returncode == 0:
-            print(
-                "[!] There was an error with restoring the IPv6 configuration"
-            )
+            print("[!] There was an error with restoring the IPv6 configuration")
             logger.debug("IPv6 restoration error: ip")
             logger.debug("stdout: {0}".format(ipv6_restore_address.stdout))
             logger.debug("stderr: {0}".format(ipv6_restore_address.stderr))
@@ -792,8 +817,9 @@ def manage_ipv6(mode):
         logger.debug("IPv6 restored")
 
     else:
-        raise Exception("Invalid argument provided. "
-                        "Mode must be 'disable' or 'restore'")
+        raise Exception(
+            "Invalid argument provided. " "Mode must be 'disable' or 'restore'"
+        )
 
 
 def manage_killswitch(mode, proto=None, port=None):
@@ -811,8 +837,11 @@ def manage_killswitch(mode, proto=None, port=None):
         logger.debug("Restoring iptables")
         if os.path.isfile(backupfile):
             logger.debug("Restoring IPTables rules")
-            subprocess.run("iptables-restore < {0}".format(backupfile),
-                           shell=True, stdout=subprocess.PIPE)
+            subprocess.run(
+                "iptables-restore < {0}".format(backupfile),
+                shell=True,
+                stdout=subprocess.PIPE,
+            )
             logger.debug("iptables restored")
             os.remove(backupfile)
             logger.debug("iptables.backup removed")
@@ -833,17 +862,16 @@ def manage_killswitch(mode, proto=None, port=None):
             content = f.read()
             device = re.search(r"(TUN\/TAP device) (.+) opened", content)
             if not device:
-                print("[!] Kill Switch activation failed."
-                      "Device couldn't be determined.")
-                logger.debug(
-                    "Kill Switch activation failed. No device in logfile"
+                print(
+                    "[!] Kill Switch activation failed."
+                    "Device couldn't be determined."
                 )
+                logger.debug("Kill Switch activation failed. No device in logfile")
             device = device.group(2)
 
         # Backing up IPTables rules
         logger.debug("Backing up iptables rules")
-        iptables_rules = subprocess.run(["iptables-save"],
-                                        stdout=subprocess.PIPE)
+        iptables_rules = subprocess.run(["iptables-save"], stdout=subprocess.PIPE)
 
         if "COMMIT" in iptables_rules.stdout.decode():
             with open(backupfile, "wb") as f:
@@ -866,10 +894,18 @@ def manage_killswitch(mode, proto=None, port=None):
             "iptables -A INPUT -i lo -j ACCEPT",
             "iptables -A OUTPUT -o {0} -j ACCEPT".format(device),
             "iptables -A INPUT -i {0} -j ACCEPT".format(device),
-            "iptables -A OUTPUT -o {0} -m state --state ESTABLISHED,RELATED -j ACCEPT".format(device), # noqa
-            "iptables -A INPUT -i {0} -m state --state ESTABLISHED,RELATED -j ACCEPT".format(device), # noqa
-            "iptables -A OUTPUT -p {0} -m {1} --dport {2} -j ACCEPT".format(proto.lower(), proto.lower(), port), # noqa
-            "iptables -A INPUT -p {0} -m {1} --sport {2} -j ACCEPT".format(proto.lower(), proto.lower(), port), # noqa
+            "iptables -A OUTPUT -o {0} -m state --state ESTABLISHED,RELATED -j ACCEPT".format(
+                device
+            ),  # noqa
+            "iptables -A INPUT -i {0} -m state --state ESTABLISHED,RELATED -j ACCEPT".format(
+                device
+            ),  # noqa
+            "iptables -A OUTPUT -p {0} -m {1} --dport {2} -j ACCEPT".format(
+                proto.lower(), proto.lower(), port
+            ),  # noqa
+            "iptables -A INPUT -p {0} -m {1} --sport {2} -j ACCEPT".format(
+                proto.lower(), proto.lower(), port
+            ),  # noqa
         ]
 
         if int(get_config_value("USER", "killswitch")) == 2:
@@ -877,13 +913,18 @@ def manage_killswitch(mode, proto=None, port=None):
             default_nic = get_default_nic()
             local_network = subprocess.run(
                 "ip addr show {0} | grep inet".format(default_nic),
-                stdout=subprocess.PIPE, shell=True
+                stdout=subprocess.PIPE,
+                shell=True,
             )
             local_network = local_network.stdout.decode().strip().split()[1]
 
             exclude_lan_commands = [
-                "iptables -A OUTPUT -o {0} -d {1} -j ACCEPT".format(default_nic, local_network), # noqa
-                "iptables -A INPUT -i {0} -s {1} -j ACCEPT".format(default_nic, local_network), # noqa
+                "iptables -A OUTPUT -o {0} -d {1} -j ACCEPT".format(
+                    default_nic, local_network
+                ),  # noqa
+                "iptables -A INPUT -i {0} -s {1} -j ACCEPT".format(
+                    default_nic, local_network
+                ),  # noqa
             ]
 
             for lan_command in exclude_lan_commands:
