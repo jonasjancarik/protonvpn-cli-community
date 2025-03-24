@@ -18,6 +18,7 @@ Usage:
     protonvpn examples
     protonvpn (-h | --help)
     protonvpn (-v | --version)
+    protonvpn api [--host <host>] [--port <port>]
 
 Options:
     --username <username>                OpenVPN username for initialization
@@ -35,6 +36,8 @@ Options:
     -v, --version                        Display version.
     --st, --split-tunnel IP              Split tunnel IP address, CIDR or domain. Comma-separated.
     --stt, --split-tunnel-type type      Split tunnel type (whitelist or blacklist).
+    --host <host>                        Host to bind API server (default: 127.0.0.1)
+    --port <port>                        Port for API server (default: 8000)
 
 Commands:
     init                Initialize a ProtonVPN profile.
@@ -65,6 +68,7 @@ from docopt import docopt
 
 # protonvpn-cli Functions
 from . import connection
+from . import api
 
 # Constants
 from .constants import (
@@ -199,6 +203,14 @@ def cli():
         pull_server_data(force=True)
     elif args.get("examples"):
         print_examples()
+    elif args.get("api"):
+        host = args.get("--host", "127.0.0.1")
+        try:
+            port = int(args.get("--port", 8000))
+        except ValueError:
+            print("[!] Port must be a number")
+            sys.exit(1)
+        api.start_api(host=host, port=port)
 
 
 def init_config_file():

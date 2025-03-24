@@ -1,13 +1,15 @@
 """setup.py: setuptools control."""
 
-
 import re
 import os
 from setuptools import setup
 
 try:
-    with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md'), encoding='utf-8') as f:
-        long_descr = '\n' + f.read()
+    with open(
+        os.path.join(os.path.abspath(os.path.dirname(__file__)), "README.md"),
+        encoding="utf-8",
+    ) as f:
+        long_descr = "\n" + f.read()
 except FileNotFoundError:
     long_descr = """
     The official Linux CLI for ProtonVPN.
@@ -18,17 +20,13 @@ except FileNotFoundError:
     """
 
 version = re.search(
-    r'(VERSION = "(\d.\d.\d+)")',
-    open("protonvpn_cli/constants.py").read(),
-    re.M
+    r'(VERSION = "(\d.\d.\d+)")', open("protonvpn_cli/constants.py").read(), re.M
 ).group(2)
 
 setup(
     name="protonvpn_cli",
     packages=["protonvpn_cli"],
-    entry_points={
-        "console_scripts": ["protonvpn = protonvpn_cli.cli:main"]
-    },
+    entry_points={"console_scripts": ["protonvpn = protonvpn_cli.cli:main"]},
     version=version,
     description="Linux command-line client for ProtonVPN",
     long_description=long_descr,
@@ -36,15 +34,16 @@ setup(
     author_email="contact@protonvpn.com",
     license="GPLv3",
     url="https://github.com/protonvpn/linux-cli-community",
-    package_data={
-        "protonvpn_cli": ["templates/*"]
-    },
+    package_data={"protonvpn_cli": ["templates/*"]},
     install_requires=[
         "requests",
         "docopt",
         "pythondialog",
         "jinja2",
         "distro",
+        "fastapi>=0.68.0",
+        "uvicorn>=0.15.0",
+        "pydantic>=1.8.0",
     ],
     python_requires=">=3.5",
     classifiers=[
