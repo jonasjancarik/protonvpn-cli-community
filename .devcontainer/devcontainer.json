@@ -1,0 +1,50 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/alpine
+{
+	"name": "ProtonVPN CLI Development",
+	
+	// Use Docker Compose for the dev container
+	"dockerComposeFile": [
+		"../docker-compose.yml",
+		// "../docker-compose.dev.yml",
+		"docker-compose.yml"
+	],
+	"service": "protonvpn-cli",
+	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	"features": {
+		"ghcr.io/devcontainers/features/git:1": {
+			"ppa": true,
+			"version": "os-provided"
+		},
+		"ghcr.io/devcontainers/features/github-cli:1": {
+			"installDirectlyFromGitHubRelease": true,
+			"version": "latest"
+		}
+	},
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+
+	// Use 'postCreateCommand' to run commands after the container is created.
+	"postCreateCommand": "pip install -e .",
+
+	// Configure tool-specific properties.
+	"customizations": {
+		// Configure properties specific to VS Code.
+		"vscode": {
+			// Add the IDs of extensions you want installed when the container is created.
+			"extensions": [
+				"ms-python.python",
+				"ms-python.debugpy",
+				"ms-python.vscode-pylance",
+				"redhat.vscode-yaml",
+				"charliermarsh.ruff"
+			]
+		}
+	},
+
+	// Connect as root since the application requires root privileges
+	"remoteUser": "root"
+}

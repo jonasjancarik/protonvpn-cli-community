@@ -1,0 +1,25 @@
+version: '3.8'
+services:
+  # Update this to match the service name in your main docker-compose.yml
+  protonvpn-cli:
+    # Uncomment if you want to override the service's Dockerfile to one in the .devcontainer 
+    # folder. Note that the path of the Dockerfile and context is relative to the *primary* 
+    # docker-compose.yml file (the first in the devcontainer.json "dockerComposeFile"
+    # array). The sample below assumes your primary file is in the root of your project.
+    #
+    # build:
+    #   context: .
+    #   dockerfile: .devcontainer/Dockerfile
+    
+    volumes:
+      # Mount the project directory to the container for development
+      - ..:/workspaces/${localWorkspaceFolderBasename}:cached
+      # Keep the persistent volume for ProtonVPN configuration
+      - protonvpn-config:/root/.pvpn-cli
+    
+    # Overrides default command so the container doesn't shut down
+    # command: /bin/sh -c "while sleep 1000; do :; done"
+
+volumes:
+  protonvpn-config:
+    driver: local 
