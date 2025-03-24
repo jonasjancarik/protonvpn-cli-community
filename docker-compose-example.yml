@@ -1,0 +1,50 @@
+version: '3.8'
+
+networks:
+  vpn_network:
+    driver: bridge
+
+services:
+  protonvpn-cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: protonvpn-cli
+    restart: unless-stopped
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - protonvpn-config:/root/.pvpn-cli
+      # Add a script for setup and connection
+      - ./vpn-entrypoint.sh:/vpn-entrypoint.sh:ro
+    networks:
+      vpn_network:
+        # Make this container the gateway for the network
+        ipv4_address: 172.20.0.2
+    # Use a custom entrypoint script to set up routing
+    entrypoint: ["/bin/bash", "/vpn-entrypoint.sh"]
+    # Use this container as a service provider for others
+    environment:
+      - VPN_ENABLE_KILLSWITCH=true  # Optional: Enable kill switch for better security
+
+  # Example service that will use the VPN connection
+  example-service:
+    image: alpine:latest
+    depends_on:
+      - protonvpn-cli
+    networks:
+      - vpn_network
+    # Make this service wait for the VPN to be established
+    restart: unless-stopped
+    # Use ProtonVPN as default gateway by disabling default network
+    network_mode: "service:protonvpn-cli"
+    # Optional command to test the connection
+    command: ["sh", "-c", "apk add --no-cache curl && while :; do curl -s https://api.ipify.org && sleep 60; done"]
+
+volumes:
+  protonvpn-config:
+    driver: local
