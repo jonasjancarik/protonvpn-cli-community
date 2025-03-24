@@ -1,5 +1,4 @@
-Forked to add a hardcoded override for the default ping-restart option (pushed by the server) and a `down` script (to be placed in `~/.pvpn-cli/vpn-down.sh`.
-
+This is a fork of https://github.com/Rafficer/linux-cli-community - I added quite a few new features (HTTP API, Docker setup, white/blaclists etc.) The readme below still needs to be updated to document these features.
 <hr>
 
 <h1 align="center">ProtonVPN-CLI</h1>
