@@ -19,29 +19,29 @@ services:
       - /dev/net/tun:/dev/net/tun
     volumes:
       - protonvpn-config:/root/.pvpn-cli
-      # Add a script for setup and connection
-      - ./vpn-entrypoint.sh:/vpn-entrypoint.sh:ro
     networks:
-      vpn_network:
-        # Make this container the gateway for the network
-        ipv4_address: 172.20.0.2
+      - vpn_network
     # Use a custom entrypoint script to set up routing
-    entrypoint: ["/bin/bash", "/vpn-entrypoint.sh"]
+    # entrypoint: ["/bin/bash", "/vpn-entrypoint.sh"]
     # Use this container as a service provider for others
+    env_file:
+      - .env
     environment:
+      - PROTONVPN_USERNAME=${PROTONVPN_USERNAME}
+      - PROTONVPN_PASSWORD=${PROTONVPN_PASSWORD}
+      - PROTONVPN_TIER=${PROTONVPN_TIER:-1}
+      - PROTONVPN_PROTOCOL=${PROTONVPN_PROTOCOL:-udp}
       - VPN_ENABLE_KILLSWITCH=true  # Optional: Enable kill switch for better security
+
 
   # Example service that will use the VPN connection
   example-service:
     image: alpine:latest
     depends_on:
       - protonvpn-cli
-    networks:
-      - vpn_network
-    # Make this service wait for the VPN to be established
-    restart: unless-stopped
-    # Use ProtonVPN as default gateway by disabling default network
+    # Remove the networks section since we're using network_mode
     network_mode: "service:protonvpn-cli"
+    restart: unless-stopped
     # Optional command to test the connection
     command: ["sh", "-c", "apk add --no-cache curl && while :; do curl -s https://api.ipify.org && sleep 60; done"]
 
