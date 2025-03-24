@@ -50,7 +50,7 @@ async def initialize(request: InitRequest):
     if request.tier:
         command.extend(["--tier", str(request.tier)])
     if request.protocol:
-        command.extend(["-p", request.protocol])
+        command.extend(["--protocol", request.protocol])
     if request.force:
         command.append("--force")
 
@@ -78,7 +78,7 @@ async def connect(request: ConnectRequest):
         command.append("--tor")
 
     if request.protocol:
-        command.extend(["-p", request.protocol])
+        command.extend(["--protocol", request.protocol])
 
     if request.split_tunnel:
         command.extend(["--split-tunnel", ",".join(request.split_tunnel)])

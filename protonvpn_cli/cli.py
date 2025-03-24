@@ -2,14 +2,14 @@
 A CLI for ProtonVPN.
 
 Usage:
-    protonvpn init [--username <username>] [--password <password>] [--tier <tier>] [-p <protocol>] [--force]
-    protonvpn (c | connect) [<servername>] [-p <protocol>] [--st | --split-tunnel <IP>]
-    protonvpn (c | connect) [-f | --fastest] [-p <protocol>] [--st | --split-tunnel <IP>]
-    protonvpn (c | connect) [--cc <code>] [-p <protocol>] [--st | --split-tunnel <IP>] [--stt | --split-tunnel-type <split_type>]
-    protonvpn (c | connect) [--sc] [-p <protocol>] [--st | --split-tunnel <IP>]
-    protonvpn (c | connect) [--p2p] [-p <protocol>] [--st | --split-tunnel <IP>]
-    protonvpn (c | connect) [--tor] [-p <protocol>] [--st | --split-tunnel <IP>]
-    protonvpn (c | connect) [-r | --random] [-p <protocol>] [--st | --split-tunnel <IP>]
+    protonvpn init [--username <username>] [--password <password>] [--tier <tier>] [-p | --protocol <protocol>] [--force]
+    protonvpn (c | connect) [<servername>] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>]
+    protonvpn (c | connect) [-f | --fastest] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>]
+    protonvpn (c | connect) [--cc <code>] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>] [--stt | --split-tunnel-type <split_type>]
+    protonvpn (c | connect) [--sc] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>]
+    protonvpn (c | connect) [--p2p] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>]
+    protonvpn (c | connect) [--tor] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>]
+    protonvpn (c | connect) [-r | --random] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>]
     protonvpn (r | reconnect)
     protonvpn (d | disconnect)
     protonvpn (s | status)
@@ -31,7 +31,7 @@ Options:
     --sc                                 Connect to the fastest Secure-Core server.
     --p2p                                Connect to the fastest torrent server.
     --tor                                Connect to the fastest Tor server.
-    -p PROTOCOL                          Determine the protocol (UDP or TCP).
+    -p, --protocol PROTOCOL              Determine the protocol (UDP or TCP).
     -h, --help                           Show this help message.
     -v, --version                        Display version.
     --st, --split-tunnel IP              Split tunnel IP address, CIDR or domain. Comma-separated.
@@ -139,7 +139,21 @@ def cli():
         if int(os.environ.get("PVPN_WAIT", 0)) > 0:
             wait_for_network(int(os.environ["PVPN_WAIT"]))
 
-        protocol = args.get("-p")
+        # Handle protocol argument which can come from either -p or --protocol
+        protocol = None
+        if args.get("-p"):
+            protocol = (
+                args.get("-p")[0]
+                if isinstance(args.get("-p"), list)
+                else args.get("-p")
+            )
+        elif args.get("--protocol"):
+            protocol = (
+                args.get("--protocol")[0]
+                if isinstance(args.get("--protocol"), list)
+                else args.get("--protocol")
+            )
+
         if protocol is not None and protocol.lower().strip() in ["tcp", "udp"]:
             protocol = protocol.lower().strip()
 
@@ -229,6 +243,10 @@ def init_config_file():
     config["metadata"] = {
         "last_api_pull": "0",
         "last_update_check": str(int(time.time())),
+        "resolvconf_hash": "0",  # Initialize with default hash
+        "connected_server": "None",
+        "connected_proto": "None",
+        "dns_server": "None",
     }
 
     with open(CONFIG_FILE, "w") as f:
@@ -282,7 +300,22 @@ def init_cli():
     cli_username = args.get("--username")
     cli_password = args.get("--password")
     cli_tier = args.get("--tier")
-    cli_protocol = args.get("-p", "udp")
+
+    # Handle protocol argument which can come from either -p or --protocol
+    cli_protocol = None
+    if args.get("-p"):
+        cli_protocol = (
+            args.get("-p")[0] if isinstance(args.get("-p"), list) else args.get("-p")
+        )
+    elif args.get("--protocol"):
+        cli_protocol = (
+            args.get("--protocol")[0]
+            if isinstance(args.get("--protocol"), list)
+            else args.get("--protocol")
+        )
+    else:
+        cli_protocol = "udp"
+
     force_reinit = args.get("--force", False)
 
     # Warn user about reinitialization unless --force is used
@@ -388,6 +421,8 @@ def print_examples():
         "               Connect to BE#5 with the default protocol.\n\n"
         "protonvpn connect NO#3 -p tcp\n"
         "               Connect to NO#3 with TCP.\n\n"
+        "protonvpn connect NO#3 --protocol tcp\n"
+        "               Connect to NO#3 with TCP (alternative syntax).\n\n"
         "protonvpn c --fastest\n"
         "               Connect to the fastest VPN Server.\n\n"
         "protonvpn connect --cc AU\n"
