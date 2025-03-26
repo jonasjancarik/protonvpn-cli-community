@@ -1,0 +1,44 @@
+name: Publish Docker image to GHCR
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'   # Build on version tags
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build the Docker image
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/protonvpn:latest .
+
+      - name: Tag with version (if applicable)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          docker tag ghcr.io/${{ github.repository }}/protonvpn:latest ghcr.io/${{ github.repository }}/protonvpn:$VERSION
+
+      - name: Push Docker image (latest)
+        run: |
+          docker push ghcr.io/${{ github.repository }}/protonvpn:latest
+
+      - name: Push Docker image (version)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          docker push ghcr.io/${{ github.repository }}/protonvpn:$VERSION
