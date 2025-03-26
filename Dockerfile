@@ -39,7 +39,7 @@ COPY vpn-entrypoint.sh /vpn-entrypoint.sh
 RUN chmod +x /vpn-entrypoint.sh
 
 # Set the entrypoint to our script
-ENTRYPOINT ["/vpn-entrypoint.sh"]
+# ENTRYPOINT ["/vpn-entrypoint.sh"]
 
 # open the shell
 # CMD ["tail", "-f", "/dev/null"]
