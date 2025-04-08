@@ -1,106 +1,25 @@
-This is a fork of https://github.com/Rafficer/linux-cli-community - I added quite a few new features (HTTP API, Docker setup, white/blaclists etc.) The readme below still needs to be updated to document these features.
-<hr>
+# ProtonVPN CLI
 
-<h1 align="center">ProtonVPN-CLI</h1>
-<p align="center">
-  <img src="resources/images/linux-cli-banner.png" alt="Logo"></img>
-</p>
+This is a fork of https://github.com/Rafficer/linux-cli-community with some new features, such as:
+- HTTP API
+- Docker setup
+- whitelist/blacklists 
 
-<p align="center">
-    <a href="https://pepy.tech/project/protonvpn-cli"><img alt="Downloads" src="https://pepy.tech/badge/protonvpn-cli"></a>
-    <img alt="GitHub" src="https://img.shields.io/github/license/ProtonVPN/linux-cli">
-    <a href="https://pepy.tech/project/protonvpn-cli/week"><img alt="Downloads per Week" src="https://pepy.tech/badge/protonvpn-cli/week"></a>
-    <br>
-    <a href="https://twitter.com/ProtonVPN"><img alt="Twitter Follow" src="https://img.shields.io/twitter/follow/ProtonVPN?style=social"></a>
-    <a href="https://www.reddit.com/r/ProtonVPN"><img alt="Subreddit subscribers" src="https://img.shields.io/reddit/subreddit-subscribers/ProtonVPN?label=Join%20r%2FProtonVPN&style=social"></a>
-</p>
-
-<h3 align="center">A Linux CLI for ProtonVPN. Written in Python.</h3>
-
-ProtonVPN-CLI is a full rewrite of the [bash protonvpn-cli](https://github.com/ProtonVPN/protonvpn-cli/blob/master/protonvpn-cli.sh) in Python, which adds more features and functionality with the purpose of improving readability, speed and reliability.
-
-## Important information
-The [official ProtonVPN Linux](https://protonvpn.com/blog/protonvpn-linux-app/) app is available for Debian 10, Ubuntu 20+, Mint 19+, MX Linux 19+, Fedora 31+ and Archlinux / Manjaro. Where possible, we recommend that you [upgrade to the official app](https://protonvpn.com/support/linux-vpn-setup/).
-The community Linux client described below remains available for those who need it.
+While an [official ProtonVPN Linux](https://protonvpn.com/blog/protonvpn-linux-app/) app is available, at this point it still doesn't include a command-line interface. This community Linux client is useful for automatad workflows, including in Docker Compose setups where it can serve as a VPN client for other containers.
 
 ## Installation & Updating
 
-For more detailed information on installing, updating and uninstalling, please view the extensive [usage guide](https://github.com/ProtonVPN/linux-cli-community/blob/master/USAGE.md#installation--updating).
-
-### Installing from distribution repositories
-
-For the following Linux distribution(s), install the official `protonvpn-cli` package:
-
-#### Fedora
-
-```sh
-sudo dnf install -y protonvpn-cli
-```
-
-#### CentOS & RHEL
-
-`protonvpn-cli` is available for CentOS/RHEL 7.x and 8.x via the [EPEL repositories](https://fedoraproject.org/wiki/EPEL).
-
-**For CentOS/RHEL 7.x**:
-
-```sh
-sudo yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-sudo yum install protonvpn-cli
-```
-
-**For CentOS/RHEL 8.x**:
-
-```sh
-sudo dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
-sudo dnf install -y protonvpn-cli
-```
-
-### Installing from PyPI
-
-#### Installing Dependencies
-
-**Dependencies:**
-
-- openvpn
-- dialog (optional, needed for interactive selection)
-- pip for python3 (pip3)
-- python3.5+
-- setuptools for python3 (python3-setuptools)
-
-Depending on your distribution, run the appropriate following command to install the necessary dependencies
-
-| **Distro**                              | **Command**                                                        |
-|:----------------------------------------|:------------------------------------------------                   |
-|Fedora/CentOS/RHEL                       | `sudo dnf install -y openvpn dialog python3-pip python3-setuptools`|
-|Ubuntu/Linux Mint/Debian and derivatives | `sudo apt install -y openvpn dialog python3-pip python3-setuptools`|
-|OpenSUSE/SLES                            | `sudo zypper in -y openvpn dialog python3-pip python3-setuptools`  |
-|Arch Linux/Manjaro                       | `sudo pacman -S openvpn dialog python-pip python-setuptools`       |
-
-#### Installing ProtonVPN-CLI
-
-Installation happens via Python's package manager PIP.
-
-*Note: Make sure to run pip with sudo, so it installs globally and recognizes the command with sudo*
-
-`sudo pip3 install protonvpn-cli`
-
-#### Updating ProtonVPN-CLI
-
-`sudo pip3 install protonvpn-cli --upgrade`
-
 ### Manual Installation from source
-
-*Disclaimer: If you are unsure about what you're doing, please follow the [normal installation guide](https://github.com/ProtonVPN/linux-cli-community/blob/master/USAGE.md#installation--updating).*
 
 It is recommended to do the manual installation in a virtual environment. Especially if it serves the purpose of developing.
 
 1. Clone this repository
 
-    `git clone https://github.com/ProtonVPN/linux-cli-community`
+    `git clone https://github.com/jonasjancarik/protonvpn-cli-community`
 
 2. Step into the directory
 
-   `cd linux-cli`
+   `cd protonvpn-cli-community`
 
 3. Install
 
@@ -108,9 +27,13 @@ It is recommended to do the manual installation in a virtual environment. Especi
 
 For updating, you just need to pull the latest version of the repository with git.
 
-### How to use
+### Docker Compose
 
-#### For more detailed information, see the extensive [usage guide](https://github.com/ProtonVPN/linux-cli-community/blob/master/USAGE.md).
+See the example in `docker-compose.yml` which will set up an example service and networking to route all requests from the example service through the ProtonVPN client.
+
+## How to use
+
+### Command-line interface
 
 | **Command**                       | **Description**                                       |
 |:----------------------------------|:------------------------------------------------------|
@@ -133,6 +56,6 @@ For updating, you just need to pull the latest version of the repository with gi
 
 All connect options can be used with the `-p` flag to explicitly specify which transmission protocol is used for that connection (either `udp` or `tcp`).
 
-## Contributing
+### HTTP API
 
-If you want to contribute to this project, please read the [contribution guide](https://github.com/ProtonVPN/linux-cli-community/blob/master/CONTRIBUTING.md).
+TBA
