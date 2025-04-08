@@ -1,5 +1,3 @@
-version: '3.8'
-
 networks:
   vpn_network:
     driver: bridge
@@ -33,7 +31,6 @@ services:
       test: ["CMD-SHELL", "protonvpn status | grep -q 'Connected'"]
       interval: 10s
       timeout: 10s
-      retries: 100
 
   # Example service that will use the VPN connection
   example-service:
