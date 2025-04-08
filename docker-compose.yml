@@ -6,9 +6,7 @@ networks:
 
 services:
   protonvpn-cli:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/jonasjancarik/protonvpn-cli-community:master
     container_name: protonvpn-cli
     restart: unless-stopped
     privileged: true

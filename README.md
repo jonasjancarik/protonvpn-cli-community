@@ -50,6 +50,8 @@ To control the client from the other containers, use the HTTP API (see below). D
    docker-compose up -d
    ```
 
+   This will pull the pre-built image from GitHub Container Registry (`ghcr.io/jonasjancarik/protonvpn-cli-community:master`) and start the containers.
+
 3. Check the logs to ensure the VPN connection is established:
 
    ```bash
