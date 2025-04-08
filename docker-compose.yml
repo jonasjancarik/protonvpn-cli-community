@@ -7,7 +7,6 @@ networks:
 services:
   protonvpn-cli:
     image: ghcr.io/jonasjancarik/protonvpn-cli-community:master
-    container_name: protonvpn-cli
     restart: unless-stopped
     privileged: true
     cap_add:
@@ -30,13 +29,18 @@ services:
       - PROTONVPN_TIER=${PROTONVPN_TIER:-1}
       - PROTONVPN_PROTOCOL=${PROTONVPN_PROTOCOL:-udp}
       - VPN_ENABLE_KILLSWITCH=true  # Optional: Enable kill switch for better security
-
+    healthcheck:
+      test: ["CMD-SHELL", "protonvpn status | grep -q 'Connected'"]
+      interval: 10s
+      timeout: 10s
+      retries: 100
 
   # Example service that will use the VPN connection
   example-service:
     image: alpine:latest
     depends_on:
-      - protonvpn-cli
+      protonvpn-cli:
+        condition: service_healthy
     # Remove the networks section since we're using network_mode
     network_mode: "service:protonvpn-cli"
     restart: unless-stopped
