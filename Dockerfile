@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     net-tools \
     iproute2 \
     procps \
+    git \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -37,6 +38,10 @@ USER root
 # Make the entrypoint script executable
 COPY vpn-entrypoint.sh /vpn-entrypoint.sh
 RUN chmod +x /vpn-entrypoint.sh
+
+# Run install-proton-vpn-api-core.sh
+RUN chmod +x install-proton-vpn-api-core.sh
+RUN ./install-proton-vpn-api-core.sh
 
 # Set the entrypoint to our script
 # ENTRYPOINT ["/vpn-entrypoint.sh"]

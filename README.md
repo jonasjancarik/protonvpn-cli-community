@@ -42,6 +42,8 @@ To control the client from the other containers, use the HTTP API (see below). D
    PROTONVPN_PASSWORD=your_password
    PROTONVPN_TIER=2  # Optional, defaults to 1
    PROTONVPN_PROTOCOL=udp  # Optional, defaults to udp
+   OPENVPN_USERNAME=your_openvpn_username
+   OPENVPN_PASSWORD=your_openvpn_password
    ```
 
 2. Start the containers:

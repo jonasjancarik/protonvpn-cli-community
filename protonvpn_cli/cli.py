@@ -94,6 +94,17 @@ from .utils import (
 )
 
 
+# Try to load environment variables from .env file if python-dotenv is available
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    logger.debug("Environment variables loaded from .env file")
+except ImportError:
+    pass
+
+
 def main():
     """Main function"""
     try:
@@ -258,7 +269,12 @@ def init_config_file():
 def _configure_profile(username, password, tier, protocol="udp"):
     """Helper function to configure ProtonVPN profile with given credentials"""
     init_config_file()
-    pull_server_data()
+
+    # Store the password in the config for API authentication
+    set_config_value("USER", "password", password)
+
+    # Pull server data using the new API library
+    pull_server_data(force=True, username=username, password=password)
 
     # Adjust tier value to match API requirements
     if tier == 4:
@@ -276,9 +292,21 @@ def _configure_profile(username, password, tier, protocol="udp"):
     set_config_value("USER", "ping", 0)
     set_config_value("USER", "ping_exit", 0)
 
-    # Create password file
+    # Get OpenVPN credentials from environment variables if available
+    ovpn_username = os.environ.get("OPENVPN_USERNAME")
+    ovpn_password = os.environ.get("OPENVPN_PASSWORD")
+
+    # Fail if OpenVPN credentials are not in environment variables
+    if not ovpn_username or not ovpn_password:
+        logger.error(
+            "OPENVPN_USERNAME and OPENVPN_PASSWORD must be set in the environment variables"
+        )
+        sys.exit(1)
+
+    # Create password file with OpenVPN credentials
     with open(PASSFILE, "w") as f:
-        f.write("{0}+{1}\n{2}".format(username, CLIENT_SUFFIX, password))
+        f.write("{0}+{1}\n{2}".format(ovpn_username, CLIENT_SUFFIX, ovpn_password))
+        logger.debug("{0}+{1}\n{2}".format(ovpn_username, CLIENT_SUFFIX, ovpn_password))
         logger.debug("Passfile created")
         os.chmod(PASSFILE, 0o600)
 
@@ -348,67 +376,45 @@ def init_cli():
             if cli_protocol not in ["udp", "tcp"]:
                 raise ValueError("protocol")
 
+            # Configure the profile with the provided credentials
+            _configure_profile(cli_username, cli_password, user_tier, cli_protocol)
+            print("ProtonVPN-CLI has been initialized with your credentials.")
+            sys.exit(0)
         except ValueError as e:
             if str(e) == "tier":
-                print(
-                    "[!] Invalid tier value. Must be 1 (Free), 2 (Basic), 3=Plus, 4=Visionary)"
-                )
+                print("Error: Tier must be 1, 2, 3, or 4.")
+            elif str(e) == "protocol":
+                print("Error: Protocol must be 'udp' or 'tcp'.")
             else:
-                print("[!] Invalid protocol value. Must be UDP or TCP")
+                print(f"Error: {str(e)}")
+            sys.exit(1)
+    else:
+        # Interactive setup
+        print("ProtonVPN-CLI initialization")
+        print("==========================")
+        print("")
+
+        # Get username and password
+        username, password = set_username_password(write=False)
+        if not username or not password:
+            print("Error: Username and password are required.")
             sys.exit(1)
 
-        _configure_profile(cli_username, cli_password, user_tier, cli_protocol)
-        print("Done! Account initialized using provided arguments.")
-        return
+        # Get tier
+        tier = set_protonvpn_tier(write=False)
+        if not tier:
+            print("Error: Tier is required.")
+            sys.exit(1)
 
-    term_width = shutil.get_terminal_size()[0]
-    print("[ -- PROTONVPN-CLI INIT -- ]\n".center(term_width))
+        # Get protocol
+        protocol = set_default_protocol(write=False)
+        if not protocol:
+            protocol = "udp"  # Default to UDP if not specified
 
-    init_msg = (
-        "ProtonVPN uses two different sets of credentials, one for the "
-        "website and official apps where the username is most likely your "
-        "e-mail, and one for connecting to the VPN servers.\n\n"
-        "You can find the OpenVPN credentials at "
-        "https://account.protonvpn.com/account.\n\n"
-        "--- Please make sure to use the OpenVPN credentials ---\n"
-    ).splitlines()
-
-    for line in init_msg:
-        print(textwrap.fill(line, width=term_width))
-
-    # Set ProtonVPN Username and Password
-    ovpn_username, ovpn_password = set_username_password(write=False)
-
-    # Set the ProtonVPN Plan
-    user_tier = set_protonvpn_tier(write=False)
-
-    # Set default Protocol
-    user_protocol = set_default_protocol(write=False)
-
-    protonvpn_plans = {1: "Free", 2: "Basic", 3: "Plus", 4: "Visionary"}
-
-    print()
-    print(
-        "You entered the following information:\n"
-        + "Username: {0}\n".format(ovpn_username)
-        + "Password: {0}\n".format("*" * len(ovpn_password))
-        + "Tier: {0}\n".format(protonvpn_plans[user_tier])
-        + "Default protocol: {0}".format(user_protocol.upper())
-    )
-    print()
-
-    user_confirmation = input("Is this information correct? [Y/n]: ").strip().lower()
-
-    if user_confirmation == "y" or user_confirmation == "":
-        print("Writing configuration to disk...")
-        _configure_profile(ovpn_username, ovpn_password, user_tier, user_protocol)
-        print()
-        print("Done! Your account has been successfully initialized.")
-        logger.debug("Initialization completed.")
-    else:
-        print()
-        print("Please restart the initialization process.")
-        sys.exit(1)
+        # Configure the profile with the provided credentials
+        _configure_profile(username, password, tier, protocol)
+        print("ProtonVPN-CLI has been initialized with your credentials.")
+        sys.exit(0)
 
 
 def print_examples():

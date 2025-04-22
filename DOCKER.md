@@ -18,6 +18,8 @@ PROTONVPN_USERNAME=your_username
 PROTONVPN_PASSWORD=your_password
 PROTONVPN_TIER=1  # Optional: Your ProtonVPN tier (1, 2, or 3)
 PROTONVPN_PROTOCOL=udp  # Optional: Connection protocol (udp or tcp)
+OPENVPN_USERNAME=your_openvpn_username  # Optional: Your OpenVPN username (defaults to PROTONVPN_USERNAME)
+OPENVPN_PASSWORD=your_openvpn_password  # Optional: Your OpenVPN password (defaults to PROTONVPN_PASSWORD)
 ```
 
 ### Building and Starting the Container

@@ -9,18 +9,29 @@ import re
 import random
 import ipaddress
 import math
+
 # External Libraries
 import requests
 from jinja2 import Environment, FileSystemLoader
+
 # ProtonVPN-CLI functions
 from .logger import logger
+
 # Constants
 from .constants import (
-    USER, CONFIG_FILE, SERVER_INFO_FILE, SPLIT_TUNNEL_FILE,
-    VERSION, OVPN_FILE, CLIENT_SUFFIX
+    USER,
+    CONFIG_FILE,
+    SERVER_INFO_FILE,
+    SPLIT_TUNNEL_FILE,
+    VERSION,
+    OVPN_FILE,
+    CLIENT_SUFFIX,
 )
 import distro
 import socket
+import asyncio
+from proton.vpn.core.api import ProtonVPNAPI
+from proton.vpn.core.session_holder import ClientTypeMetadata
 
 
 def call_api(endpoint, json_format=True, handle_errors=True):
@@ -33,7 +44,9 @@ def call_api(endpoint, json_format=True, handle_errors=True):
         "x-pm-appversion": "LinuxVPN_{0}".format(VERSION),
         "x-pm-apiversion": "3",
         "Accept": "application/vnd.protonmail.v1+json",
-        "User-Agent": "ProtonVPN/{} (Linux; {}/{})".format(VERSION, distribution, version),
+        "User-Agent": "ProtonVPN/{} (Linux; {}/{})".format(
+            VERSION, distribution, version
+        ),
     }
 
     logger.debug("Initiating API Call: {0}".format(url))
@@ -45,8 +58,7 @@ def call_api(endpoint, json_format=True, handle_errors=True):
 
     try:
         response = requests.get(url, headers=headers)
-    except (requests.exceptions.ConnectionError,
-            requests.exceptions.ConnectTimeout):
+    except (requests.exceptions.ConnectionError, requests.exceptions.ConnectTimeout):
         print(
             "[!] There was an error connecting to the ProtonVPN API.\n"
             "[!] Please make sure your connection is working properly!"
@@ -57,8 +69,8 @@ def call_api(endpoint, json_format=True, handle_errors=True):
         response.raise_for_status()
     except requests.exceptions.HTTPError:
         try:
-            error_message = response.json()['Error']
-        except: # noqa
+            error_message = response.json()["Error"]
+        except:  # noqa
             error_message = "Unknown error"
         print(
             "[!] There was an error with accessing the ProtonVPN API.\n"
@@ -77,8 +89,121 @@ def call_api(endpoint, json_format=True, handle_errors=True):
         return response
 
 
-def pull_server_data(force=False):
-    """Pull current server data from the ProtonVPN API."""
+def pull_server_data_with_library(force=False, username=None, password=None):
+    """Pull current server data from the ProtonVPN API using the official library."""
+    config = configparser.ConfigParser()
+    config.read(CONFIG_FILE)
+
+    if not force:
+        # Check if last server pull happened within the last 15 min (900 sec)
+        if int(time.time()) - int(config["metadata"]["last_api_pull"]) <= 900:
+            logger.debug("Last server pull within 15mins")
+            return
+
+    # Get username and password from parameters or config
+    if username is None:
+        try:
+            username = get_config_value("USER", "username")
+        except KeyError:
+            logger.debug(
+                "Username not found in config, cannot use ProtonVPN API library"
+            )
+            return
+
+    if password is None:
+        try:
+            password = get_config_value("USER", "password")
+        except KeyError:
+            logger.debug(
+                "Password not found in config, cannot use ProtonVPN API library"
+            )
+            return
+
+    # Define metadata for the client application
+    # Use the same type and version as the test script
+    client_meta = ClientTypeMetadata(
+        type="cli",  # Changed from protonvpn-cli to cli
+        version="5.0.0",
+    )
+
+    # Create the API object
+    api = ProtonVPNAPI(client_type_metadata=client_meta)
+
+    # Define the authentication function
+    async def authenticate():
+        try:
+            login_result = await api.login(username, password)
+            if login_result.twofa_required:
+                logger.debug("2FA required")
+                # For CLI, we'll need to handle 2FA differently
+                # For now, we'll just return False if 2FA is required
+                return False
+            if not login_result.authenticated:
+                logger.debug("Authentication failed")
+                return False
+            logger.debug("Authentication successful")
+            return True
+        except Exception as e:
+            logger.debug(f"Authentication error: {e}")
+            return False
+
+    # Run the authentication
+    auth_success = asyncio.run(authenticate())
+
+    if not auth_success:
+        logger.debug("Failed to authenticate with ProtonVPN API")
+        return
+
+    # Enable the refresher to get server data
+    async def enable_refresher():
+        try:
+            await api.refresher.enable()
+            # Wait for the refresher to indicate data is ready
+            timeout = 30  # seconds
+            start_time = time.time()
+            while not api.refresher.is_vpn_data_ready:
+                if time.time() - start_time > timeout:
+                    logger.debug("Timed out waiting for VPN data")
+                    return False
+                await asyncio.sleep(0.5)
+            return True
+        except Exception as e:
+            logger.debug(f"Error enabling refresher: {e}")
+            return False
+
+    # Run the refresher
+    refresher_success = asyncio.run(enable_refresher())
+
+    if not refresher_success:
+        logger.debug("Failed to enable refresher")
+        return
+
+    # Get the server list data
+    if api.vpn_session_loaded and api.server_list:
+        logger.debug("Accessing server list data from ProtonVPN API library")
+        server_data = api.server_list
+
+        # Convert the server data to the expected format using the to_dict method
+        data = server_data.to_dict()
+
+        with open(SERVER_INFO_FILE, "w") as f:
+            json.dump(data, f)
+            logger.debug("SERVER_INFO_FILE written")
+
+        change_file_owner(SERVER_INFO_FILE)
+        config["metadata"]["last_api_pull"] = str(int(time.time()))
+
+        with open(CONFIG_FILE, "w+") as f:
+            config.write(f)
+            logger.debug("last_api_call updated")
+    else:
+        logger.debug("Server list data is not available from ProtonVPN API library")
+        # Fall back to the old method
+        pull_server_data_legacy(force)
+
+
+def pull_server_data_legacy(force=False):
+    """Legacy method to pull current server data from the ProtonVPN API."""
     config = configparser.ConfigParser()
     config.read(CONFIG_FILE)
 
@@ -102,6 +227,17 @@ def pull_server_data(force=False):
         logger.debug("last_api_call updated")
 
 
+def pull_server_data(force=False, username=None, password=None):
+    """Pull current server data from the ProtonVPN API."""
+    try:
+        # Try using the new library-based method
+        pull_server_data_with_library(force, username, password)
+    except Exception as e:
+        logger.debug(f"Error using ProtonVPN API library: {e}")
+        # Fall back to the legacy method
+        pull_server_data_legacy(force)
+
+
 def get_servers():
     """Return a list of all servers for the users Tier."""
 
@@ -114,12 +250,16 @@ def get_servers():
     user_tier = int(get_config_value("USER", "tier"))
 
     # Sort server IDs by Tier
-    return [server for server in servers if server["Tier"] <= user_tier and server["Status"] == 1] # noqa
+    return [
+        server
+        for server in servers
+        if server["Tier"] <= user_tier and server["Status"] == 1
+    ]  # noqa
 
 
 def get_server_value(servername, key, servers):
     """Return the value of a key for a given server."""
-    value = [server[key] for server in servers if server['Name'] == servername]
+    value = [server[key] for server in servers if server["Name"] == servername]
     return value[0]
 
 
@@ -138,29 +278,39 @@ def set_config_value(group, key, value):
     config.read(CONFIG_FILE)
     config[group][key] = str(value)
 
-    logger.debug(
-        "Writing {0} to [{1}] in config file".format(key, group)
-    )
+    logger.debug("Writing {0} to [{1}] in config file".format(key, group))
 
     with open(CONFIG_FILE, "w+") as f:
         config.write(f)
 
 
 def get_ip_info():
-    """Return the current public IP Address"""
+    """Return the current public IP Address and ISP"""
     logger.debug("Getting IP Information")
-    ip_info = call_api("/vpn/location")
+    try:
+        # Use ipify.org to get the public IP address
+        response = requests.get("https://api.ipify.org?format=json")
+        response.raise_for_status()
+        ip_data = response.json()
+        ip = ip_data.get("ip")
 
-    ip = ip_info["IP"]
-    isp = ip_info["ISP"]
+        # Use ip-api.com to get ISP information
+        isp_response = requests.get(f"http://ip-api.com/json/{ip}")
+        isp_response.raise_for_status()
+        isp_data = isp_response.json()
+        isp = isp_data.get("isp")
 
-    return ip, isp
+        return ip, isp
+    except Exception as e:
+        logger.debug(f"Error getting IP info: {e}")
+        return None, None
 
 
 def get_country_name(code):
     """Return the full name of a country from code"""
 
     from .country_codes import country_codes
+
     return country_codes.get(code, code)
 
 
@@ -168,16 +318,12 @@ def get_fastest_server(server_pool):
     """Return the fastest server from a list of servers"""
 
     # Sort servers by "speed" and select top n according to pool_size
-    fastest_pool = sorted(
-        server_pool, key=lambda server: server["Score"]
-    )
+    fastest_pool = sorted(server_pool, key=lambda server: server["Score"])
     if len(fastest_pool) >= 50:
         pool_size = 4
     else:
         pool_size = 1
-    logger.debug(
-        "Returning fastest server with pool size {0}".format(pool_size)
-    )
+    logger.debug("Returning fastest server with pool size {0}".format(pool_size))
     fastest_server = random.choice(fastest_pool[:pool_size])["Name"]
     return fastest_server
 
@@ -185,8 +331,7 @@ def get_fastest_server(server_pool):
 def get_default_nic():
     """Find and return the default network interface"""
     default_route = subprocess.run(
-        "ip route show | grep default",
-        stdout=subprocess.PIPE, shell=True
+        "ip route show | grep default", stdout=subprocess.PIPE, shell=True
     )
 
     # Get the default nic from ip route show output
@@ -196,21 +341,23 @@ def get_default_nic():
 
 def is_connected():
     """Check if a VPN connection already exists."""
-    ovpn_processes = subprocess.run(["pgrep", "-x", "openvpn"],
-                                    stdout=subprocess.PIPE)
+    ovpn_processes = subprocess.run(["pgrep", "-x", "openvpn"], stdout=subprocess.PIPE)
     ovpn_processes = ovpn_processes.stdout.decode("utf-8").split()
+    logger.debug(f"OpenVPN processes: {ovpn_processes}")
 
     logger.debug(
-        "Checking connection Status. OpenVPN processes: {0}"
-        .format(len(ovpn_processes))
+        "Checking connection Status. OpenVPN processes: {0}".format(len(ovpn_processes))
     )
     return True if ovpn_processes != [] else False
 
 
 def is_ipv6_disabled():
     """Returns True if IPv6 is disabled and False if it's enabled"""
-    ipv6_state = subprocess.run(['sysctl', '-n', 'net.ipv6.conf.all.disable_ipv6'],
-                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    ipv6_state = subprocess.run(
+        ["sysctl", "-n", "net.ipv6.conf.all.disable_ipv6"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
 
     if ipv6_state.returncode != 0 or int(ipv6_state.stdout):
         return True
@@ -236,8 +383,10 @@ def wait_for_network(wait_time):
             print("Connection working!")
             logger.debug("Connection working!")
             break
-        except (requests.exceptions.ConnectionError,
-                requests.exceptions.ConnectTimeout):
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ConnectTimeout,
+        ):
             time.sleep(2)
 
 
@@ -254,7 +403,11 @@ def render_j2_template(template_file, destination_file, values):
     values = dictionary with values for jinja2 templates
     """
 
-    j2 = Environment(loader=FileSystemLoader(os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")))
+    j2 = Environment(
+        loader=FileSystemLoader(
+            os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
+        )
+    )
     template = j2.get_template(template_file)
 
     # Render Template and write to file
@@ -279,7 +432,7 @@ def create_openvpn_config(serverlist, protocol, ports):
         if get_config_value("USER", "split_tunnel") == "1":
             split = True
             with open(SPLIT_TUNNEL_FILE, "r") as f:
-                content = f.readlines()            
+                content = f.readlines()
         else:
             split = False
     except KeyError:
@@ -291,9 +444,10 @@ def create_openvpn_config(serverlist, protocol, ports):
     ip_nm_pairs = []
 
     if split:
-
         if os.getenv("PVPN_SPLIT_TUNNEL"):
-            content += [item.strip() for item in os.getenv("PVPN_SPLIT_TUNNEL").split(",")]
+            content += [
+                item.strip() for item in os.getenv("PVPN_SPLIT_TUNNEL").split(",")
+            ]
 
         # deduplicate content
         content = list(set(content))
@@ -336,7 +490,7 @@ def create_openvpn_config(serverlist, protocol, ports):
         "split": split,
         "ip_nm_pairs": ip_nm_pairs,
         "ipv6_disabled": ipv6_disabled,
-        "ignore_ping_restart": ignore_ping_restart
+        "ignore_ping_restart": ignore_ping_restart,
     }
 
     if os.getenv("PVPN_SPLIT_TUNNEL"):
@@ -344,20 +498,25 @@ def create_openvpn_config(serverlist, protocol, ports):
     elif get_config_value("USER", "split_tunnel") == "1":
         j2_values["split_type"] = get_config_value("USER", "split_type")
     else:
-        j2_values["split_type"] = "blacklist"  # default for CLI args-based split tunneling (no config file)
+        j2_values["split_type"] = (
+            "blacklist"  # default for CLI args-based split tunneling (no config file)
+        )
 
-    render_j2_template(template_file="openvpn_template.j2", destination_file=OVPN_FILE, values=j2_values)
+    render_j2_template(
+        template_file="openvpn_template.j2",
+        destination_file=OVPN_FILE,
+        values=j2_values,
+    )
 
 
 def change_file_owner(path):
     """Change the owner of specific files to the sudo user."""
-    uid = int(subprocess.run(["id", "-u", USER],
-                             stdout=subprocess.PIPE).stdout)
-    gid = int(subprocess.run(["id", "-u", USER],
-                             stdout=subprocess.PIPE).stdout)
+    uid = int(subprocess.run(["id", "-u", USER], stdout=subprocess.PIPE).stdout)
+    gid = int(subprocess.run(["id", "-u", USER], stdout=subprocess.PIPE).stdout)
 
-    current_owner = subprocess.run(["id", "-nu", str(os.stat(path).st_uid)],
-                                   stdout=subprocess.PIPE).stdout
+    current_owner = subprocess.run(
+        ["id", "-nu", str(os.stat(path).st_uid)], stdout=subprocess.PIPE
+    ).stdout
     current_owner = current_owner.decode().rstrip("\n")
 
     # Only change file owner if it wasn't owned by current running user.
@@ -369,23 +528,22 @@ def change_file_owner(path):
 def check_root():
     """Check if the program was executed as root and prompt the user."""
     if os.geteuid() != 0:
-        print(
-            "[!] The program was not executed as root.\n"
-            "[!] Please run as root."
-        )
+        print("[!] The program was not executed as root.\n[!] Please run as root.")
         logger.debug("Program wasn't executed as root")
         sys.exit(1)
     else:
         # Check for dependencies
         dependencies = ["openvpn", "ip", "sysctl", "pgrep", "pkill"]
         for program in dependencies:
-            check = subprocess.run(["which", program],
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
+            check = subprocess.run(
+                ["which", program], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
             if not check.returncode == 0:
                 logger.debug("{0} not found".format(program))
-                print("'{0}' not found. \n".format(program)
-                      + "Please install {0}.".format(program))
+                print(
+                    "'{0}' not found. \n".format(program)
+                    + "Please install {0}.".format(program)
+                )
                 sys.exit(1)
 
 
@@ -397,16 +555,16 @@ def check_update():
         logger.debug("Calling pypi API")
         try:
             r = requests.get("https://pypi.org/pypi/protonvpn-cli/json")
-        except (requests.exceptions.ConnectionError,
-                requests.exceptions.ConnectTimeout):
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ConnectTimeout,
+        ):
             logger.debug("Couldn't connect to pypi API")
             return False
         try:
             r.raise_for_status()
         except requests.exceptions.HTTPError:
-            logger.debug(
-                "HTTP Error with pypi API: {0}".format(r.status_code)
-            )
+            logger.debug("HTTP Error with pypi API: {0}".format(r.status_code))
             return False
 
         release = r.json()["info"]["version"]
@@ -453,8 +611,8 @@ def check_update():
     if update_available:
         print()
         print(
-            "A new Update for ProtonVPN-CLI (v{0}) ".format('.'.join(
-                [str(x) for x in latest_version])
+            "A new Update for ProtonVPN-CLI (v{0}) ".format(
+                ".".join([str(x) for x in latest_version])
             )
             + "is available.\n"
             + "Follow the Update instructions on\n"
@@ -499,10 +657,14 @@ def check_init():
                     try:
                         get_config_value(section, config_key)
                     except KeyError:
-                        logger.debug("Config {0}/{1} not found, default set"
-                                     .format(section, config_key))
-                        set_config_value(section, config_key,
-                                         default_conf[section][config_key])
+                        logger.debug(
+                            "Config {0}/{1} not found, default set".format(
+                                section, config_key
+                            )
+                        )
+                        set_config_value(
+                            section, config_key, default_conf[section][config_key]
+                        )
 
     except KeyError:
         print(
@@ -515,11 +677,11 @@ def check_init():
 
 def is_valid_ip(ipaddr):
     valid_ip_re = re.compile(
-        r'^(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\.'
-        r'(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\.'
-        r'(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\.'
-        r'(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)'
-        r'(/(3[0-2]|[12][0-9]|[1-9]))?$'  # Matches CIDR
+        r"^(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\."
+        r"(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\."
+        r"(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\."
+        r"(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)"
+        r"(/(3[0-2]|[12][0-9]|[1-9]))?$"  # Matches CIDR
     )
 
     if valid_ip_re.match(ipaddr):
@@ -547,7 +709,9 @@ def is_valid_domain(domain):
     """
 
     # Check for valid characters and length in each domain part
-    pattern = re.compile(r"^(?:(?!-)[A-Za-z0-9-]{1,63}(?<!-)\.){1,}(?!-)[A-Za-z0-9-]{1,63}(?<!-)$")
+    pattern = re.compile(
+        r"^(?:(?!-)[A-Za-z0-9-]{1,63}(?<!-)\.){1,}(?!-)[A-Za-z0-9-]{1,63}(?<!-)$"
+    )
 
     if pattern.match(domain.strip()):
         return True
@@ -572,19 +736,19 @@ def get_transferred_data():
 
     base_path = "/sys/class/net/{0}/statistics/{1}"
 
-    if os.path.isfile(base_path.format('proton0', 'rx_bytes')):
-        adapter_name = 'proton0'
-    elif os.path.isfile(base_path.format('tun0', 'rx_bytes')):
-        adapter_name = 'tun0'
+    if os.path.isfile(base_path.format("proton0", "rx_bytes")):
+        adapter_name = "proton0"
+    elif os.path.isfile(base_path.format("tun0", "rx_bytes")):
+        adapter_name = "tun0"
     else:
         logger.debug("No usage stats for VPN interface available")
-        return '-', '-'
+        return "-", "-"
 
     # Get transmitted and received bytes from /sys/ directory
-    with open(base_path.format(adapter_name, 'tx_bytes'), "r") as f:
+    with open(base_path.format(adapter_name, "tx_bytes"), "r") as f:
         tx_bytes = int(f.read())
 
-    with open(base_path.format(adapter_name, 'rx_bytes'), "r") as f:
+    with open(base_path.format(adapter_name, "rx_bytes"), "r") as f:
         rx_bytes = int(f.read())
 
     return convert_size(tx_bytes), convert_size(rx_bytes)
@@ -594,8 +758,12 @@ def patch_passfile(passfile):
     with open(passfile, "r") as f:
         ovpn_username = f.readline()
         ovpn_password = f.readline()
-    if CLIENT_SUFFIX not in ovpn_username.strip().split('+')[1:]:
+    if CLIENT_SUFFIX not in ovpn_username.strip().split("+")[1:]:
         # Let's append the CLIENT_SUFFIX
         with open(passfile, "w") as f:
-            f.write("{0}+{1}\n{2}".format(ovpn_username.strip(), CLIENT_SUFFIX, ovpn_password))
+            f.write(
+                "{0}+{1}\n{2}".format(
+                    ovpn_username.strip(), CLIENT_SUFFIX, ovpn_password
+                )
+            )
         os.chmod(passfile, 0o600)

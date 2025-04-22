@@ -39,15 +39,25 @@ connect_vpn_with_retry() {
     return 1
 }
 
-# Connect to ProtonVPN (customize these parameters as needed)
-echo "Connecting to ProtonVPN..."
+# Initialize ProtonVPN
+echo "Initializing ProtonVPN..."
 protonvpn init --username $PROTONVPN_USERNAME --password $PROTONVPN_PASSWORD --tier $PROTONVPN_TIER --protocol $PROTONVPN_PROTOCOL --force
 
-# Attempt to connect with retries
-if ! connect_vpn_with_retry; then
-    echo "Fatal: Could not establish VPN connection after multiple attempts"
-    exit 1
+# Verify that the passfile was created with the OpenVPN credentials
+echo "Verifying passfile..."
+if [ -f ~/.pvpn-cli/pvpnpass ]; then
+    echo "Passfile created successfully."
+    # Display the first line of the passfile (username) to verify it's using the OpenVPN credentials
+    head -n 1 ~/.pvpn-cli/pvpnpass
+else
+    echo "Error: Passfile not created."
 fi
+
+# # Attempt to connect with retries
+# if ! connect_vpn_with_retry; then
+#     echo "Fatal: Could not establish VPN connection after multiple attempts"
+#     exit 1
+# fi
 
 # Launch the API server in the background
 echo "Starting ProtonVPN API server..."

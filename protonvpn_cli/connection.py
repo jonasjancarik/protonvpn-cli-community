@@ -62,7 +62,7 @@ def dialog():
         ["which", "dialog"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     if not dialog_check.returncode == 0:
-        print("'dialog' not found. " "Please install dialog via your package manager.")
+        print("'dialog' not found. Please install dialog via your package manager.")
         logger.debug("dialog not found")
         sys.exit(1)
 
@@ -318,8 +318,7 @@ def reconnect():
     except KeyError:
         logger.debug("No previous connection found")
         print(
-            "[!] Couldn't find a previous connection\n"
-            "[!] Please connect normally first"
+            "[!] Couldn't find a previous connection\n[!] Please connect normally first"
         )
         sys.exit(1)
 
@@ -492,38 +491,37 @@ def openvpn_connect(servername, protocol):
 
     patch_passfile(PASSFILE)
 
-    with open(os.path.join(CONFIG_DIR, "ovpn.log"), "w+") as f:
-        args = [
-            "openvpn",
-            "--config",
-            OVPN_FILE,
-            "--auth-user-pass",
-            PASSFILE,
-            "--dev",
-            "proton0",
-            "--dev-type",
-            "tun",
-        ]
+    args = [
+        "openvpn",
+        "--config",
+        OVPN_FILE,
+        "--auth-user-pass",
+        PASSFILE,
+        "--dev",
+        "proton0",
+        "--dev-type",
+        "tun",
+        "--log",
+        "/root/.pvpn-cli/ovpn.log",
+    ]
 
-        if int(get_config_value("USER", "ping")) and int(
-            get_config_value("USER", "ping_exit")
-        ):
-            args.extend(
-                [
-                    "--ping",
-                    get_config_value("USER", "ping"),
-                    "--ping-exit",
-                    get_config_value("USER", "ping_exit"),
-                ]
-            )
+    if int(get_config_value("USER", "ping")) and int(
+        get_config_value("USER", "ping_exit")
+    ):
+        args.extend(
+            [
+                "--ping",
+                get_config_value("USER", "ping"),
+                "--ping-exit",
+                get_config_value("USER", "ping_exit"),
+            ]
+        )
 
-        # Check if the file /usr/bin/protonvpn-down.sh exists, if yes, add it to the args
-        if os.path.isfile("/usr/bin/protonvpn-down.sh"):
-            args.extend(
-                ["--script-security", "2", "--down", "/usr/bin/protonvpn-down.sh"]
-            )
+    # Check if the file /usr/bin/protonvpn-down.sh exists, if yes, add it to the args
+    if os.path.isfile("/usr/bin/protonvpn-down.sh"):
+        args.extend(["--script-security", "2", "--down", "/usr/bin/protonvpn-down.sh"])
 
-        subprocess.Popen(args, stdout=f, stderr=f)
+    subprocess.Popen(args)
 
     logger.debug("OpenVPN process started")
     time_start = time.time()
@@ -682,7 +680,7 @@ def manage_dns(mode, dns_server=False):
             logger.debug("No Backupfile found")
     else:
         raise Exception(
-            "Invalid argument provided. " "Mode must be 'restore' or 'leak_protection'"
+            "Invalid argument provided. Mode must be 'restore' or 'leak_protection'"
         )
 
 
@@ -818,7 +816,7 @@ def manage_ipv6(mode):
 
     else:
         raise Exception(
-            "Invalid argument provided. " "Mode must be 'disable' or 'restore'"
+            "Invalid argument provided. Mode must be 'disable' or 'restore'"
         )
 
 
@@ -863,8 +861,7 @@ def manage_killswitch(mode, proto=None, port=None):
             device = re.search(r"(TUN\/TAP device) (.+) opened", content)
             if not device:
                 print(
-                    "[!] Kill Switch activation failed."
-                    "Device couldn't be determined."
+                    "[!] Kill Switch activation failed.Device couldn't be determined."
                 )
                 logger.debug("Kill Switch activation failed. No device in logfile")
             device = device.group(2)
