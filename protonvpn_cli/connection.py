@@ -491,6 +491,13 @@ def openvpn_connect(servername, protocol):
 
     patch_passfile(PASSFILE)
 
+    # Construct the log file path dynamically
+    ovpn_log_dir = os.path.join(CONFIG_DIR)
+    ovpn_log_file = os.path.join(ovpn_log_dir, "ovpn.log")
+
+    # Ensure the log directory exists
+    os.makedirs(ovpn_log_dir, exist_ok=True)
+
     args = [
         "openvpn",
         "--config",
@@ -502,7 +509,7 @@ def openvpn_connect(servername, protocol):
         "--dev-type",
         "tun",
         "--log",
-        "/root/.pvpn-cli/ovpn.log",
+        ovpn_log_file, # Use the dynamically generated path
     ]
 
     if int(get_config_value("USER", "ping")) and int(
@@ -526,74 +533,101 @@ def openvpn_connect(servername, protocol):
     logger.debug("OpenVPN process started")
     time_start = time.time()
 
-    with open(os.path.join(CONFIG_DIR, "ovpn.log"), "r") as f:
-        while True:
-            content = f.read()
-            f.seek(0)
-            # If connection successful
-            if "Initialization Sequence Completed" in content:
-                # Enable DNS Leak Protection
-                dns_dhcp_regex = re.compile(
-                    r"(dhcp-option DNS )" r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
-                )
+    # Read from the correct log file path
+    # Check if the log file exists before trying to open it
+    log_wait_start = time.time()
+    while not os.path.exists(ovpn_log_file) and time.time() - log_wait_start < 5: # Wait up to 5s for log file
+        time.sleep(0.1)
 
-                dns_dhcp = dns_dhcp_regex.search(content)
-                if dns_dhcp:
-                    dns_server = dns_dhcp.group(2)
-                    set_config_value("metadata", "dns_server", dns_server)
-                    manage_dns("leak_protection", dns_server)
-                else:
-                    print(
-                        "[!] Could not enable DNS Leak Protection!\n"
-                        "[!] Make sure you are protected!"
+    if not os.path.exists(ovpn_log_file):
+        logger.error(f"OpenVPN log file did not appear: {ovpn_log_file}")
+        print("[!] Connection failed. OpenVPN log file not found.")
+        # Attempt cleanup or exit
+        disconnect(passed=True) # Attempt to clean up any partial connection
+        sys.exit(1)
+
+    try:
+        with open(ovpn_log_file, "r") as f:
+            while True:
+                content = f.read()
+                # If file is actively being written, read() might return empty.
+                # seek(0) is not sufficient, need to handle empty reads or use tail-like logic.
+                # For simplicity, let's just re-seek and sleep if content is empty.
+                if not content and time.time() - time_start < 45:
+                    f.seek(0)
+                    time.sleep(0.1)
+                    continue
+                # If connection successful
+                if "Initialization Sequence Completed" in content:
+                    # Enable DNS Leak Protection
+                    dns_dhcp_regex = re.compile(
+                        r"(dhcp-option DNS )" r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
                     )
-                manage_ipv6("disable")
-                manage_killswitch(
-                    "enable", proto=protocol.lower(), port=port[protocol.lower()]
-                )
-                new_ip, _ = get_ip_info()
-                if (
-                    not int(get_config_value("USER", "split_tunnel"))
-                    or get_config_value("USER", "split_type") == "blacklist"
-                ):
-                    if old_ip == new_ip:
-                        logger.debug("Failed to connect. IP didn't change")
+
+                    dns_dhcp = dns_dhcp_regex.search(content)
+                    if dns_dhcp:
+                        dns_server = dns_dhcp.group(2)
+                        set_config_value("metadata", "dns_server", dns_server)
+                        manage_dns("leak_protection", dns_server)
+                    else:
                         print(
-                            "[!] Connection failed. IP didn't change. Reverting all changes..."
+                            "[!] Could not enable DNS Leak Protection!\n"
+                            "[!] Make sure you are protected!"
                         )
-                        disconnect(passed=True)
-                print("Connected!")
-                logger.debug("Connection successful")
-                break
-            # If Authentication failed
-            elif "AUTH_FAILED" in content:
-                print(
-                    "[!] Authentication failed. \n"
-                    "[!] Please make sure that your "
-                    "Username and Password is correct."
-                )
-                logger.debug("Authentication failure")
-                sys.exit(1)
-            # Stop after 45s
-            elif time.time() - time_start >= 45:
-                print("Connection failed.")
-                logger.debug("Connection failed after 45 Seconds")
-                sys.exit(1)
-            time.sleep(0.1)
+                    manage_ipv6("disable")
+                    manage_killswitch(
+                        "enable", proto=protocol.lower(), port=port[protocol.lower()]
+                    )
+                    new_ip, _ = get_ip_info()
+                    if (
+                        not int(get_config_value("USER", "split_tunnel"))
+                        or get_config_value("USER", "split_type") == "blacklist"
+                    ):
+                        if old_ip == new_ip:
+                            logger.debug("Failed to connect. IP didn't change")
+                            print(
+                                "[!] Connection failed. IP didn't change. Reverting all changes..."
+                            )
+                            disconnect(passed=True)
+                    print("Connected!")
+                    logger.debug("Connection successful")
+                    break
+                # If Authentication failed
+                elif "AUTH_FAILED" in content:
+                    print(
+                        "[!] Authentication failed. \n"
+                        "[!] Please make sure that your "
+                        "Username and Password is correct."
+                    )
+                    logger.debug("Authentication failure")
+                    sys.exit(1)
+                # Stop after 45s
+                elif time.time() - time_start >= 45:
+                    print("Connection failed.")
+                    logger.debug("Connection failed after 45 Seconds")
+                    sys.exit(1)
+                time.sleep(0.1)
 
-    # Write connection info into configuration file
-    logger.debug("Writing connection info to file")
-    config = configparser.ConfigParser()
-    config.read(CONFIG_FILE)
+        # Write connection info into configuration file
+        logger.debug("Writing connection info to file")
+        config = configparser.ConfigParser()
+        config.read(CONFIG_FILE)
 
-    config["metadata"]["connected_server"] = servername
-    config["metadata"]["connected_proto"] = protocol
-    config["metadata"]["connected_time"] = str(int(time.time()))
+        config["metadata"]["connected_server"] = servername
+        config["metadata"]["connected_proto"] = protocol
+        config["metadata"]["connected_time"] = str(int(time.time()))
 
-    with open(CONFIG_FILE, "w+") as f:
-        config.write(f)
+        with open(CONFIG_FILE, "w+") as f:
+            config.write(f)
 
-    check_update()
+        check_update()
+
+    except FileNotFoundError:
+        logger.error(f"OpenVPN log file disappeared or couldn't be opened: {ovpn_log_file}")
+        print("[!] Connection monitoring failed. Log file issue.")
+        # Attempt cleanup or exit
+        disconnect(passed=True)
+        sys.exit(1)
 
 
 def manage_dns(mode, dns_server=False):

@@ -27,78 +27,34 @@ from .constants import (
     OVPN_FILE,
     CLIENT_SUFFIX,
 )
-import distro
 import socket
 import asyncio
 from proton.vpn.core.api import ProtonVPNAPI
 from proton.vpn.core.session_holder import ClientTypeMetadata
 
 
-def call_api(endpoint, json_format=True, handle_errors=True):
-    """Call to the ProtonVPN API."""
-
-    api_domain = get_config_value("USER", "api_domain").rstrip("/")
-    url = api_domain + endpoint
-    distribution, version, _ = distro.linux_distribution()
-    headers = {
-        "x-pm-appversion": "LinuxVPN_{0}".format(VERSION),
-        "x-pm-apiversion": "3",
-        "Accept": "application/vnd.protonmail.v1+json",
-        "User-Agent": "ProtonVPN/{} (Linux; {}/{})".format(
-            VERSION, distribution, version
-        ),
-    }
-
-    logger.debug("Initiating API Call: {0}".format(url))
-
-    # For manual error handling, such as in wait_for_network()
-    if not handle_errors:
-        response = requests.get(url, headers=headers)
-        return response
-
-    try:
-        response = requests.get(url, headers=headers)
-    except (requests.exceptions.ConnectionError, requests.exceptions.ConnectTimeout):
-        print(
-            "[!] There was an error connecting to the ProtonVPN API.\n"
-            "[!] Please make sure your connection is working properly!"
-        )
-        logger.debug("Error connecting to ProtonVPN API")
-        sys.exit(1)
-    try:
-        response.raise_for_status()
-    except requests.exceptions.HTTPError:
-        try:
-            error_message = response.json()["Error"]
-        except:  # noqa
-            error_message = "Unknown error"
-        print(
-            "[!] There was an error with accessing the ProtonVPN API.\n"
-            "[!] Please make sure your connection is working properly!\n"
-            "[!] HTTP Error Code: {0}\n"
-            "[!] {1}".format(response.status_code, error_message)
-        )
-        logger.debug("Bad Return Code: {0}".format(response.status_code))
-        sys.exit(1)
-
-    if json_format:
-        logger.debug("Successful json response")
-        return response.json()
-    else:
-        logger.debug("Successful non-json response")
-        return response
-
-
-def pull_server_data_with_library(force=False, username=None, password=None):
-    """Pull current server data from the ProtonVPN API using the official library."""
+def pull_server_data(force=False, username=None, password=None):
+    """
+    Pull current server data from the ProtonVPN API using the proton-python-client library.
+    Returns True on success, False on failure.
+    """
     config = configparser.ConfigParser()
     config.read(CONFIG_FILE)
 
     if not force:
         # Check if last server pull happened within the last 15 min (900 sec)
-        if int(time.time()) - int(config["metadata"]["last_api_pull"]) <= 900:
-            logger.debug("Last server pull within 15mins")
-            return
+        # Added check for existence of last_api_pull key
+        if "metadata" in config and "last_api_pull" in config["metadata"]:
+            try:
+                last_pull_time = int(config["metadata"]["last_api_pull"])
+                if int(time.time()) - last_pull_time <= 900:
+                    logger.debug("Last server pull within 15mins, assuming success")
+                    return True  # Assume cached data is good
+            except ValueError:
+                 logger.debug("Invalid last_api_pull value in config, proceeding with API call.")
+        else:
+            logger.debug("last_api_pull not found in config, proceeding with API call.")
+
 
     # Get username and password from parameters or config
     if username is None:
@@ -108,7 +64,7 @@ def pull_server_data_with_library(force=False, username=None, password=None):
             logger.debug(
                 "Username not found in config, cannot use ProtonVPN API library"
             )
-            return
+            return False
 
     if password is None:
         try:
@@ -117,13 +73,12 @@ def pull_server_data_with_library(force=False, username=None, password=None):
             logger.debug(
                 "Password not found in config, cannot use ProtonVPN API library"
             )
-            return
+            return False
 
     # Define metadata for the client application
-    # Use the same type and version as the test script
     client_meta = ClientTypeMetadata(
-        type="cli",  # Changed from protonvpn-cli to cli
-        version="5.0.0",
+        type="cli-community",
+        version=VERSION, # Use imported VERSION
     )
 
     # Create the API object
@@ -134,7 +89,7 @@ def pull_server_data_with_library(force=False, username=None, password=None):
         try:
             login_result = await api.login(username, password)
             if login_result.twofa_required:
-                logger.debug("2FA required")
+                logger.debug("2FA required, cannot proceed with library")
                 # For CLI, we'll need to handle 2FA differently
                 # For now, we'll just return False if 2FA is required
                 return False
@@ -152,7 +107,7 @@ def pull_server_data_with_library(force=False, username=None, password=None):
 
     if not auth_success:
         logger.debug("Failed to authenticate with ProtonVPN API")
-        return
+        return False
 
     # Enable the refresher to get server data
     async def enable_refresher():
@@ -176,7 +131,7 @@ def pull_server_data_with_library(force=False, username=None, password=None):
 
     if not refresher_success:
         logger.debug("Failed to enable refresher")
-        return
+        return False
 
     # Get the server list data
     if api.vpn_session_loaded and api.server_list:
@@ -186,56 +141,27 @@ def pull_server_data_with_library(force=False, username=None, password=None):
         # Convert the server data to the expected format using the to_dict method
         data = server_data.to_dict()
 
-        with open(SERVER_INFO_FILE, "w") as f:
-            json.dump(data, f)
-            logger.debug("SERVER_INFO_FILE written")
+        try:
+            with open(SERVER_INFO_FILE, "w") as f:
+                json.dump(data, f)
+                logger.debug("SERVER_INFO_FILE written")
 
-        change_file_owner(SERVER_INFO_FILE)
-        config["metadata"]["last_api_pull"] = str(int(time.time()))
+            change_file_owner(SERVER_INFO_FILE)
+            # Ensure metadata section exists before writing
+            if "metadata" not in config:
+                config.add_section("metadata")
+            config["metadata"]["last_api_pull"] = str(int(time.time()))
 
-        with open(CONFIG_FILE, "w+") as f:
-            config.write(f)
-            logger.debug("last_api_call updated")
+            with open(CONFIG_FILE, "w+") as f:
+                config.write(f)
+                logger.debug("last_api_call updated")
+            return True
+        except (IOError, OSError) as e:
+            logger.debug(f"Error writing server/config file: {e}")
+            return False
     else:
         logger.debug("Server list data is not available from ProtonVPN API library")
-        # Fall back to the old method
-        pull_server_data_legacy(force)
-
-
-def pull_server_data_legacy(force=False):
-    """Legacy method to pull current server data from the ProtonVPN API."""
-    config = configparser.ConfigParser()
-    config.read(CONFIG_FILE)
-
-    if not force:
-        # Check if last server pull happened within the last 15 min (900 sec)
-        if int(time.time()) - int(config["metadata"]["last_api_pull"]) <= 900:
-            logger.debug("Last server pull within 15mins")
-            return
-
-    data = call_api("/vpn/logicals")
-
-    with open(SERVER_INFO_FILE, "w") as f:
-        json.dump(data, f)
-        logger.debug("SERVER_INFO_FILE written")
-
-    change_file_owner(SERVER_INFO_FILE)
-    config["metadata"]["last_api_pull"] = str(int(time.time()))
-
-    with open(CONFIG_FILE, "w+") as f:
-        config.write(f)
-        logger.debug("last_api_call updated")
-
-
-def pull_server_data(force=False, username=None, password=None):
-    """Pull current server data from the ProtonVPN API."""
-    try:
-        # Try using the new library-based method
-        pull_server_data_with_library(force, username, password)
-    except Exception as e:
-        logger.debug(f"Error using ProtonVPN API library: {e}")
-        # Fall back to the legacy method
-        pull_server_data_legacy(force)
+        return False
 
 
 def get_servers():
@@ -366,7 +292,7 @@ def is_ipv6_disabled():
 
 
 def wait_for_network(wait_time):
-    """Check if internet access is working"""
+    """Check if internet access is working by attempting to refresh server data."""
 
     print("Waiting for connection...")
     start = time.time()
@@ -376,17 +302,22 @@ def wait_for_network(wait_time):
             logger.debug("Max waiting time reached.")
             print("Max waiting time reached.")
             sys.exit(1)
-        logger.debug("Waiting for {0}s for connection...".format(wait_time))
-        try:
-            call_api("/test/ping", handle_errors=False)
-            time.sleep(2)
-            print("Connection working!")
-            logger.debug("Connection working!")
+
+        logger.debug(
+            "Attempting to refresh server data to check connection..."
+        )
+        # TODO: Using full server data pull just for connectivity check is inefficient.
+        # Consider a lighter API check if available in the library or a simple HTTP GET.
+        success = pull_server_data(force=True)
+
+        if success:
+            print("Connection working! Tested by refreshing server data.")
+            logger.debug("Connection confirmed via server data refresh.")
             break
-        except (
-            requests.exceptions.ConnectionError,
-            requests.exceptions.ConnectTimeout,
-        ):
+        else:
+            logger.debug(
+                "Server data refresh failed, likely no connection. Retrying..."
+            )
             time.sleep(2)
 
 
