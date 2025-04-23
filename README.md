@@ -23,7 +23,7 @@ It is recommended to do the manual installation in a virtual environment. Especi
 
 3. Install
 
-    `pip3 install -e .`
+    `sudo pip3 install -e .`
 
 For updating, you just need to pull the latest version of the repository with git.
 
