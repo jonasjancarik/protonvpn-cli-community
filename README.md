@@ -29,6 +29,9 @@ For updating, you just need to pull the latest version of the repository with gi
 
 ### Docker Compose
 
+> [!WARNING]  
+> At the moment, Docker setup is not fully functional - you may be able to connect but there seems to be an issue with terminating connections. This might have something to do with the way a VPN connection is established on startup in vpn-entrypoint.sh
+
 See the example in `docker-compose.yml` which will set up an example service and networking to route all requests from the example service through the ProtonVPN client.
 
 To control the client from the other containers, use the HTTP API (see below). Due to the way the networking is set up, `localhost` points to the ProtonVPN container, meaning API requests should also be directed to http://localhost:8000/.
