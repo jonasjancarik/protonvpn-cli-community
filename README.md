@@ -119,15 +119,21 @@ All connect options can be used with the `-p` flag to explicitly specify which t
 
 ### HTTP API
 
-The ProtonVPN CLI includes an HTTP API that allows you to control the VPN programmatically. The API is built with FastAPI and can be started using the `protonvpn-cli-api` command.
+The ProtonVPN CLI includes an HTTP API that allows you to control the VPN programmatically. The API is built with FastAPI and can be started using the `protonvpn api` command.
 
 #### Starting the API Server
 
 ```bash
-protonvpn-cli-api
+protonvpn api [--host <ip>] [--port <port>]
 ```
 
-By default, the API server runs on `http://localhost:8000`. You can also start it programmatically:
+By default, the API server runs on `http://127.0.0.1:8000`. You can specify a different host and port using the `--host` and `--port` flags. For example, to make it accessible from other machines on your network (use with caution):
+
+```bash
+protonvpn api --host 0.0.0.0 --port 8080
+```
+
+You can also start it programmatically:
 
 ```python
 from protonvpn_cli.api import start_api

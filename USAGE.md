@@ -420,7 +420,7 @@ The CLI includes a FastAPI-based HTTP API for programmatic control.
 
 * **Command Line:**
     ```bash
-    sudo protonvpn api [--host <ip>] [--port <port>]
+    protonvpn api [--host <ip>] [--port <port>]
     ```
     Defaults to `127.0.0.1:8000`. Use `0.0.0.0` to make it accessible from other machines (use with caution).
 * **Docker:** The `docker-compose.yml` setup typically starts the API automatically inside the container, accessible as `http://localhost:8000` from other containers in the same Docker Compose setup.
