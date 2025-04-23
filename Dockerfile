@@ -39,10 +39,6 @@ USER root
 COPY vpn-entrypoint.sh /vpn-entrypoint.sh
 RUN chmod +x /vpn-entrypoint.sh
 
-# Run install-proton-vpn-api-core.sh
-RUN chmod +x install-proton-vpn-api-core.sh
-RUN ./install-proton-vpn-api-core.sh
-
 # Set the entrypoint to our script
 # ENTRYPOINT ["/vpn-entrypoint.sh"]
 
