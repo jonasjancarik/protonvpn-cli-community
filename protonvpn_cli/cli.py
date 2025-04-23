@@ -2,7 +2,7 @@
 A CLI for ProtonVPN.
 
 Usage:
-    protonvpn init [--username <username>] [--password <password>] [--tier <tier>] [-p | --protocol <protocol>] [--force]
+    protonvpn init [--username <username>] [--password <password>] [--tier <tier>] [-p | --protocol <protocol>] [--force] [--openvpn-username <ovpn_user>] [--openvpn-password <ovpn_pass>]
     protonvpn (c | connect) [<servername>] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>]
     protonvpn (c | connect) [-f | --fastest] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>]
     protonvpn (c | connect) [--cc <code>] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>] [--stt | --split-tunnel-type <split_type>]
@@ -38,6 +38,8 @@ Options:
     --stt, --split-tunnel-type type      Split tunnel type (whitelist or blacklist).
     --host <host>                        Host to bind API server (default: 127.0.0.1)
     --port <port>                        Port for API server (default: 8000)
+    --openvpn-username <ovpn_user>       OpenVPN username for initialization
+    --openvpn-password <ovpn_pass>       OpenVPN password for initialization
 
 Commands:
     init                Initialize a ProtonVPN profile.
@@ -266,7 +268,7 @@ def init_config_file():
     logger.debug("pvpn-cli.cfg initialized")
 
 
-def _configure_profile(username, password, tier, protocol="udp"):
+def _configure_profile(username, password, tier, ovpn_username, ovpn_password, protocol="udp"):
     """Helper function to configure ProtonVPN profile with given credentials"""
     init_config_file()
 
@@ -291,17 +293,6 @@ def _configure_profile(username, password, tier, protocol="udp"):
     set_config_value("USER", "ignore_ping_restart", 0)
     set_config_value("USER", "ping", 0)
     set_config_value("USER", "ping_exit", 0)
-
-    # Get OpenVPN credentials from environment variables if available
-    ovpn_username = os.environ.get("OPENVPN_USERNAME")
-    ovpn_password = os.environ.get("OPENVPN_PASSWORD")
-
-    # Fail if OpenVPN credentials are not in environment variables
-    if not ovpn_username or not ovpn_password:
-        logger.error(
-            "OPENVPN_USERNAME and OPENVPN_PASSWORD must be set in the environment variables"
-        )
-        sys.exit(1)
 
     # Create password file with OpenVPN credentials
     with open(PASSFILE, "w") as f:
@@ -328,6 +319,8 @@ def init_cli():
     cli_username = args.get("--username")
     cli_password = args.get("--password")
     cli_tier = args.get("--tier")
+    cli_ovpn_username = args.get("--openvpn-username")
+    cli_ovpn_password = args.get("--openvpn-password")
 
     # Handle protocol argument which can come from either -p or --protocol
     cli_protocol = None
@@ -363,7 +356,7 @@ def init_cli():
         pass
 
     # If all required args are present, use them for non-interactive setup
-    if all([cli_username, cli_password, cli_tier]):
+    if all([cli_username, cli_password, cli_tier, cli_ovpn_username, cli_ovpn_password]):
         logger.debug("Using command line arguments for initialization")
 
         # Validate inputs
@@ -377,7 +370,7 @@ def init_cli():
                 raise ValueError("protocol")
 
             # Configure the profile with the provided credentials
-            _configure_profile(cli_username, cli_password, user_tier, cli_protocol)
+            _configure_profile(cli_username, cli_password, user_tier, cli_ovpn_username, cli_ovpn_password, cli_protocol)
             print("ProtonVPN-CLI has been initialized with your credentials.")
             sys.exit(0)
         except ValueError as e:
@@ -394,10 +387,16 @@ def init_cli():
         print("==========================")
         print("")
 
-        # Get username and password
+        # Get ProtonVPN username and password
         username, password = set_username_password(write=False)
         if not username or not password:
-            print("Error: Username and password are required.")
+            print("Error: ProtonVPN username and password are required.")
+            sys.exit(1)
+
+        # Get OpenVPN username and password
+        ovpn_username, ovpn_password = set_openvpn_credentials()
+        if not ovpn_username or not ovpn_password:
+            print("Error: OpenVPN username and password are required.")
             sys.exit(1)
 
         # Get tier
@@ -412,7 +411,7 @@ def init_cli():
             protocol = "udp"  # Default to UDP if not specified
 
         # Configure the profile with the provided credentials
-        _configure_profile(username, password, tier, protocol)
+        _configure_profile(username, password, tier, ovpn_username, ovpn_password, protocol)
         print("ProtonVPN-CLI has been initialized with your credentials.")
         sys.exit(0)
 
@@ -529,12 +528,12 @@ def set_username_password(write=False):
     """Set the ProtonVPN Username and Password."""
 
     print()
-    ovpn_username = input("Enter your ProtonVPN OpenVPN username: ")
+    ovpn_username = input("Enter your ProtonVPN username: ")
 
     # Ask for the password and confirmation until both are the same
     while True:
-        ovpn_password1 = getpass.getpass("Enter your ProtonVPN OpenVPN password: ")
-        ovpn_password2 = getpass.getpass("Confirm your ProtonVPN OpenVPN password: ")
+        ovpn_password1 = getpass.getpass("Enter your ProtonVPN password: ")
+        ovpn_password2 = getpass.getpass("Confirm your ProtonVPN password: ")
 
         if not ovpn_password1 == ovpn_password2:
             print()
@@ -905,3 +904,22 @@ def set_lost_connection_options():
 
     print()
     print("Lost connection options updated.")
+
+
+def set_openvpn_credentials():
+    """Get the OpenVPN username and password interactively."""
+    print()
+    ovpn_username = input("Enter your OpenVPN username: ")
+
+    # Ask for the password and confirmation until both are the same
+    while True:
+        ovpn_password1 = getpass.getpass("Enter your OpenVPN password: ")
+        ovpn_password2 = getpass.getpass("Confirm your OpenVPN password: ")
+
+        if not ovpn_password1 == ovpn_password2:
+            print()
+            print("[!] The OpenVPN passwords do not match. Please try again.")
+        else:
+            break
+
+    return ovpn_username, ovpn_password1

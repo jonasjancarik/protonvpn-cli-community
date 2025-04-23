@@ -41,7 +41,7 @@ connect_vpn_with_retry() {
 
 # Initialize ProtonVPN
 echo "Initializing ProtonVPN..."
-protonvpn init --username $PROTONVPN_USERNAME --password $PROTONVPN_PASSWORD --tier $PROTONVPN_TIER --protocol $PROTONVPN_PROTOCOL --force
+protonvpn init --username $PROTONVPN_USERNAME --password $PROTONVPN_PASSWORD --tier $PROTONVPN_TIER --protocol $PROTONVPN_PROTOCOL --openvpn-username "$OPENVPN_USERNAME" --openvpn-password "$OPENVPN_PASSWORD" --force
 
 # Verify that the passfile was created with the OpenVPN credentials
 echo "Verifying passfile..."
