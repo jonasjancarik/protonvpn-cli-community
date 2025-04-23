@@ -50,6 +50,7 @@ Commands:
     configure          Change ProtonVPN-CLI configuration.
     refresh            Refresh OpenVPN configuration and server data.
     examples           Print some example commands.
+    api                Start the API server (for controlling the VPN connection).
 
 Arguments:
     <servername>        Servername (CH#4, CH-US-1, HK5-Tor).
@@ -121,8 +122,8 @@ def cli():
 
     if shutil.which("NetworkManager") or shutil.which("nmcli"):
         print(
-            "\nProtonVPN now offers an official Linux app which includes a graphical user interface.\n"
-            "Visit https://protonvpn.com/support/official-linux-client to upgrade."
+            "\nProtonVPN now offers an official, user-friendly Linux app, recommended for most desktop users. If you prefer or require a command-line tool, you can continue using this CLI.\n"
+            "Visit https://protonvpn.com/support/official-linux-client to learn more and upgrade."
         )
 
     # Initial log values
@@ -231,9 +232,10 @@ def cli():
     elif args.get("examples"):
         print_examples()
     elif args.get("api"):
-        host = args.get("--host", "127.0.0.1")
+        host = args.get("--host") or "127.0.0.1"
+        port_arg = args.get("--port")
         try:
-            port = int(args.get("--port", 8000))
+            port = int(port_arg) if port_arg is not None else 8000
         except ValueError:
             print("[!] Port must be a number")
             sys.exit(1)
@@ -388,13 +390,13 @@ def init_cli():
         print("")
 
         # Get ProtonVPN username and password
-        username, password = set_username_password(write=False)
+        username, password = set_openvpn_credentials_config(write=False)
         if not username or not password:
             print("Error: ProtonVPN username and password are required.")
             sys.exit(1)
 
         # Get OpenVPN username and password
-        ovpn_username, ovpn_password = set_openvpn_credentials()
+        ovpn_username, ovpn_password = set_openvpn_credentials_config(write=False)
         if not ovpn_username or not ovpn_password:
             print("Error: OpenVPN username and password are required.")
             sys.exit(1)
@@ -457,42 +459,46 @@ def configure_cli():
         print(
             "What do you want to change?\n"
             "\n"
-            "1) Username and Password\n"
-            "2) ProtonVPN Plan\n"
-            "3) Default Protocol\n"
-            "4) DNS Management\n"
-            "5) Kill Switch\n"
-            "6) Split Tunneling\n"
-            "7) Lost Connection Options\n"
-            "8) Purge Configuration\n"
+            "1) ProtonVPN Credentials (for API)\n"
+            "2) OpenVPN Credentials (for connection)\n"
+            "3) ProtonVPN Plan\n"
+            "4) Default Protocol\n"
+            "5) DNS Management\n"
+            "6) Kill Switch\n"
+            "7) Split Tunneling\n"
+            "8) Lost Connection Options\n"
+            "9) Purge Configuration\n"
         )
 
         user_choice = input("Please enter your choice or leave empty to quit: ")
 
         user_choice = user_choice.lower().strip()
         if user_choice == "1":
-            set_username_password(write=True)
+            set_protonvpn_credentials_config()
             break
         elif user_choice == "2":
-            set_protonvpn_tier(write=True)
+            set_openvpn_credentials_config(write=True)
             break
         elif user_choice == "3":
-            set_default_protocol(write=True)
+            set_protonvpn_tier(write=True)
             break
         elif user_choice == "4":
-            set_dns_protection()
+            set_default_protocol(write=True)
             break
         elif user_choice == "5":
-            set_killswitch()
+            set_dns_protection()
             break
         elif user_choice == "6":
-            set_split_tunnel()
+            set_killswitch()
             break
         elif user_choice == "7":
+            set_split_tunnel()
+            break
+        elif user_choice == "8":
             set_lost_connection_options()
             break
         # Make sure this is always the last option
-        elif user_choice == "8":
+        elif user_choice == "9":
             purge_configuration()
             break
         elif user_choice == "":
@@ -524,34 +530,59 @@ def purge_configuration():
     print("Configuration purged.")
 
 
-def set_username_password(write=False):
-    """Set the ProtonVPN Username and Password."""
+def set_openvpn_credentials_config(write=True):
+    """Set the OpenVPN Username and Password in the PASSFILE."""
 
     print()
-    ovpn_username = input("Enter your ProtonVPN username: ")
+    ovpn_username = input("Enter your OpenVPN username: ")
 
     # Ask for the password and confirmation until both are the same
     while True:
-        ovpn_password1 = getpass.getpass("Enter your ProtonVPN password: ")
-        ovpn_password2 = getpass.getpass("Confirm your ProtonVPN password: ")
+        ovpn_password1 = getpass.getpass("Enter your OpenVPN password: ")
+        ovpn_password2 = getpass.getpass("Confirm your OpenVPN password: ")
 
         if not ovpn_password1 == ovpn_password2:
+            print()
+            print("[!] The OpenVPN passwords do not match. Please try again.")
+        else:
+            break
+
+    if write:
+        # Create password file with OpenVPN credentials
+        with open(PASSFILE, "w") as f:
+            f.write("{0}+{1}\n{2}".format(ovpn_username, CLIENT_SUFFIX, ovpn_password1))
+            logger.debug("{0}+{1}\n{2}".format(ovpn_username, CLIENT_SUFFIX, ovpn_password1))
+            logger.debug("Passfile updated")
+            os.chmod(PASSFILE, 0o600)
+
+        print("OpenVPN credentials have been updated!")
+
+    return ovpn_username, ovpn_password1
+
+
+def set_protonvpn_credentials_config():
+    """Set the ProtonVPN Username and Password in the config."""
+
+    print()
+    username = input("Enter your ProtonVPN username: ")
+
+    # Ask for the password and confirmation until both are the same
+    while True:
+        password_1 = getpass.getpass("Enter your ProtonVPN password: ")
+        password_2 = getpass.getpass("Confirm your ProtonVPN password: ")
+
+        if not password_1 == password_2:
             print()
             print("[!] The passwords do not match. Please try again.")
         else:
             break
 
-    if write:
-        set_config_value("USER", "username", ovpn_username)
+    set_config_value("USER", "username", username)
+    set_config_value("USER", "password", password_1) # Store password in config for API auth
 
-        with open(PASSFILE, "w") as f:
-            f.write("{0}\n{1}".format(ovpn_username, ovpn_password1))
-            logger.debug("Passfile updated")
-            os.chmod(PASSFILE, 0o600)
+    print("ProtonVPN credentials have been updated!")
 
-        print("Username and Password has been updated!")
-
-    return ovpn_username, ovpn_password1
+    return username, password_1
 
 
 def set_protonvpn_tier(write=False):
@@ -904,22 +935,3 @@ def set_lost_connection_options():
 
     print()
     print("Lost connection options updated.")
-
-
-def set_openvpn_credentials():
-    """Get the OpenVPN username and password interactively."""
-    print()
-    ovpn_username = input("Enter your OpenVPN username: ")
-
-    # Ask for the password and confirmation until both are the same
-    while True:
-        ovpn_password1 = getpass.getpass("Enter your OpenVPN password: ")
-        ovpn_password2 = getpass.getpass("Confirm your OpenVPN password: ")
-
-        if not ovpn_password1 == ovpn_password2:
-            print()
-            print("[!] The OpenVPN passwords do not match. Please try again.")
-        else:
-            break
-
-    return ovpn_username, ovpn_password1
