@@ -40,6 +40,7 @@ Options:
     --port <port>                        Port for API server (default: 8000)
     --openvpn-username <ovpn_user>       OpenVPN username for initialization
     --openvpn-password <ovpn_pass>       OpenVPN password for initialization
+    --no-upgrade-notice                  Do not show the upgrade notice on startup
 
 Commands:
     init                Initialize a ProtonVPN profile.
@@ -127,7 +128,13 @@ def cli():
             # Default to showing the notice if the config value is missing or invalid
             show_notice = 1
 
-        if show_notice:
+        # Only show notice if the flag is NOT set AND the config allows it
+        if (
+            not docopt(__doc__, version="ProtonVPN-CLI v{0}".format(VERSION)).get(
+                "--no-upgrade-notice"
+            )
+            and show_notice
+        ):
             print(
                 "\nProtonVPN now offers an official, user-friendly Linux app, recommended for most desktop users. If you prefer or require a command-line tool, you can continue using this CLI.\n\n"
                 "Visit https://protonvpn.com/support/official-linux-client to learn more and upgrade.\n\n"
@@ -150,6 +157,28 @@ def cli():
 
     args = docopt(__doc__, version="ProtonVPN-CLI v{0}".format(VERSION))
     logger.debug("Arguments\n{0}".format(str(args).replace("\n", "")))
+
+    if shutil.which("NetworkManager") or shutil.which("nmcli"):
+        # Check the flag first. If set, skip the notice entirely.
+        if not args.get("--no-upgrade-notice"):
+            try:
+                show_notice = int(get_config_value("USER", "show_upgrade_notice"))
+            except (KeyError, ValueError):
+                # Default to showing the notice if the config value is missing or invalid
+                show_notice = 1
+
+            # Only show notice if the config allows it (flag already checked)
+            if show_notice:
+                print(
+                    "\nProtonVPN now offers an official, user-friendly Linux app, recommended for most desktop users. If you prefer or require a command-line tool, you can continue using this CLI.\n\n"
+                    "Visit https://protonvpn.com/support/official-linux-client to learn more and upgrade.\n\n"
+                )
+                # Set the config value to 0 so it doesn't show again
+                try:
+                    set_config_value("USER", "show_upgrade_notice", 0)
+                except KeyError:
+                    # Handle cases where the config file might not be fully initialized yet
+                    pass
 
     # Parse arguments
     if args.get("init"):
