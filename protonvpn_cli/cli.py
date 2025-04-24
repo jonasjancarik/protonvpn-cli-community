@@ -390,7 +390,7 @@ def init_cli():
         print("")
 
         # Get ProtonVPN username and password
-        username, password = set_openvpn_credentials_config(write=False)
+        username, password = set_protonvpn_credentials_config()
         if not username or not password:
             print("Error: ProtonVPN username and password are required.")
             sys.exit(1)
