@@ -121,10 +121,23 @@ def cli():
     """Run user's input command."""
 
     if shutil.which("NetworkManager") or shutil.which("nmcli"):
-        print(
-            "\nProtonVPN now offers an official, user-friendly Linux app, recommended for most desktop users. If you prefer or require a command-line tool, you can continue using this CLI.\n"
-            "Visit https://protonvpn.com/support/official-linux-client to learn more and upgrade."
-        )
+        try:
+            show_notice = int(get_config_value("USER", "show_upgrade_notice"))
+        except (KeyError, ValueError):
+            # Default to showing the notice if the config value is missing or invalid
+            show_notice = 1
+
+        if show_notice:
+            print(
+                "\nProtonVPN now offers an official, user-friendly Linux app, recommended for most desktop users. If you prefer or require a command-line tool, you can continue using this CLI.\n\n"
+                "Visit https://protonvpn.com/support/official-linux-client to learn more and upgrade.\n\n"
+            )
+            # Set the config value to 0 so it doesn't show again
+            try:
+                set_config_value("USER", "show_upgrade_notice", 0)
+            except KeyError:
+                # Handle cases where the config file might not be fully initialized yet
+                pass
 
     # Initial log values
     change_file_owner(os.path.join(CONFIG_DIR, "pvpn-cli.log"))
@@ -254,6 +267,7 @@ def init_config_file():
         "custom_dns": "None",
         "check_update_interval": "3",
         "api_domain": "https://api.protonvpn.ch",
+        "show_upgrade_notice": "1",
     }
     config["metadata"] = {
         "last_api_pull": "0",
@@ -270,7 +284,9 @@ def init_config_file():
     logger.debug("pvpn-cli.cfg initialized")
 
 
-def _configure_profile(username, password, tier, ovpn_username, ovpn_password, protocol="udp"):
+def _configure_profile(
+    username, password, tier, ovpn_username, ovpn_password, protocol="udp"
+):
     """Helper function to configure ProtonVPN profile with given credentials"""
     init_config_file()
 
@@ -358,7 +374,9 @@ def init_cli():
         pass
 
     # If all required args are present, use them for non-interactive setup
-    if all([cli_username, cli_password, cli_tier, cli_ovpn_username, cli_ovpn_password]):
+    if all(
+        [cli_username, cli_password, cli_tier, cli_ovpn_username, cli_ovpn_password]
+    ):
         logger.debug("Using command line arguments for initialization")
 
         # Validate inputs
@@ -372,7 +390,14 @@ def init_cli():
                 raise ValueError("protocol")
 
             # Configure the profile with the provided credentials
-            _configure_profile(cli_username, cli_password, user_tier, cli_ovpn_username, cli_ovpn_password, cli_protocol)
+            _configure_profile(
+                cli_username,
+                cli_password,
+                user_tier,
+                cli_ovpn_username,
+                cli_ovpn_password,
+                cli_protocol,
+            )
             print("ProtonVPN-CLI has been initialized with your credentials.")
             sys.exit(0)
         except ValueError as e:
@@ -413,7 +438,9 @@ def init_cli():
             protocol = "udp"  # Default to UDP if not specified
 
         # Configure the profile with the provided credentials
-        _configure_profile(username, password, tier, ovpn_username, ovpn_password, protocol)
+        _configure_profile(
+            username, password, tier, ovpn_username, ovpn_password, protocol
+        )
         print("ProtonVPN-CLI has been initialized with your credentials.")
         sys.exit(0)
 
@@ -468,6 +495,7 @@ def configure_cli():
             "7) Split Tunneling\n"
             "8) Lost Connection Options\n"
             "9) Purge Configuration\n"
+            "10) Toggle Upgrade Notice\n"
         )
 
         user_choice = input("Please enter your choice or leave empty to quit: ")
@@ -497,9 +525,11 @@ def configure_cli():
         elif user_choice == "8":
             set_lost_connection_options()
             break
-        # Make sure this is always the last option
         elif user_choice == "9":
             purge_configuration()
+            break
+        elif user_choice == "10":
+            set_upgrade_notice()
             break
         elif user_choice == "":
             print("Quitting configuration.")
@@ -551,7 +581,9 @@ def set_openvpn_credentials_config(write=True):
         # Create password file with OpenVPN credentials
         with open(PASSFILE, "w") as f:
             f.write("{0}+{1}\n{2}".format(ovpn_username, CLIENT_SUFFIX, ovpn_password1))
-            logger.debug("{0}+{1}\n{2}".format(ovpn_username, CLIENT_SUFFIX, ovpn_password1))
+            logger.debug(
+                "{0}+{1}\n{2}".format(ovpn_username, CLIENT_SUFFIX, ovpn_password1)
+            )
             logger.debug("Passfile updated")
             os.chmod(PASSFILE, 0o600)
 
@@ -578,7 +610,9 @@ def set_protonvpn_credentials_config():
             break
 
     set_config_value("USER", "username", username)
-    set_config_value("USER", "password", password_1) # Store password in config for API auth
+    set_config_value(
+        "USER", "password", password_1
+    )  # Store password in config for API auth
 
     print("ProtonVPN credentials have been updated!")
 
@@ -935,3 +969,41 @@ def set_lost_connection_options():
 
     print()
     print("Lost connection options updated.")
+
+
+def set_upgrade_notice():
+    """Enable or disable the upgrade notice."""
+
+    try:
+        current_status = int(get_config_value("USER", "show_upgrade_notice"))
+    except (KeyError, ValueError):
+        current_status = 1  # Default to enabled if missing or invalid
+
+    print()
+    print(
+        f"The upgrade notice is currently {'enabled' if current_status else 'disabled'}."
+    )
+    print("This notice informs about the official ProtonVPN Linux app.")
+    print()
+    print("1) Enable upgrade notice\n2) Disable upgrade notice")
+
+    while True:
+        print()
+        user_choice = input("Please enter your choice or leave empty to quit: ")
+        user_choice = user_choice.strip()
+
+        if user_choice == "1":
+            new_status = 1
+            break
+        elif user_choice == "2":
+            new_status = 0
+            break
+        elif user_choice == "":
+            print("Quitting configuration.")
+            return  # Use return instead of sys.exit to go back to the main loop
+        else:
+            print("[!] Invalid choice. Please enter 1 or 2.")
+
+    set_config_value("USER", "show_upgrade_notice", new_status)
+    print()
+    print(f"Upgrade notice has been {'enabled' if new_status else 'disabled'}.")
