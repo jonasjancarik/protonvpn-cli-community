@@ -34,6 +34,7 @@ This document provides an extensive guide on how to install and use this fork of
     - [IPv6 Leak Protection](#ipv6-leak-protection)
     - [Kill Switch](#kill-switch)
     - [Split Tunneling](#split-tunneling)
+    - [Custom OpenVPN Down Script](#custom-openvpn-down-script)
   - [HTTP API](#http-api)
     - [Starting the API Server](#starting-the-api-server)
     - [API Endpoints](#api-endpoints)
@@ -411,6 +412,13 @@ Managed via `sudo protonvpn configure` -> Option 6. Also controllable per-connec
 * **Important Notes:**
     * Split Tunneling is **incompatible** with the Kill Switch. Enabling Split Tunneling will disable the Kill Switch, and vice versa.
     * Domain name resolution happens *before* connecting. If the IP for a domain changes while connected, the split tunneling rule might become ineffective until reconnection.
+
+### Custom OpenVPN Down Script
+
+* **Purpose:** Allows advanced users to execute custom commands automatically when the OpenVPN connection managed by this CLI is terminated (either through `protonvpn disconnect` or unexpectedly).
+* **Mechanism:** Before initiating an OpenVPN connection, the CLI checks for the existence of the file `/usr/bin/protonvpn-down.sh`. If this specific file exists, the CLI automatically adds the `--script-security 2` and `--down /usr/bin/protonvpn-down.sh` arguments to the `openvpn` command. This tells OpenVPN to execute the script upon disconnection.
+* **Usage:** Create an executable script at `/usr/bin/protonvpn-down.sh` containing any cleanup actions you need (e.g., restoring specific firewall rules, logging disconnection). Ensure the script has execute permissions (`sudo chmod +x /usr/bin/protonvpn-down.sh`).
+* **Note:** This feature is implicit and not managed via the `protonvpn configure` menu. The CLI simply checks for the script's presence at the predefined path.
 
 ## HTTP API
 
