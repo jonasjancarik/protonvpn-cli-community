@@ -51,10 +51,11 @@ def pull_server_data(force=False, username=None, password=None):
                     logger.debug("Last server pull within 15mins, assuming success")
                     return True  # Assume cached data is good
             except ValueError:
-                 logger.debug("Invalid last_api_pull value in config, proceeding with API call.")
+                logger.debug(
+                    "Invalid last_api_pull value in config, proceeding with API call."
+                )
         else:
             logger.debug("last_api_pull not found in config, proceeding with API call.")
-
 
     # Get username and password from parameters or config
     if username is None:
@@ -78,7 +79,7 @@ def pull_server_data(force=False, username=None, password=None):
     # Define metadata for the client application
     client_meta = ClientTypeMetadata(
         type="cli-community",
-        version=VERSION, # Use imported VERSION
+        version=VERSION,  # Use imported VERSION
     )
 
     # Create the API object
@@ -303,9 +304,7 @@ def wait_for_network(wait_time):
             print("Max waiting time reached.")
             sys.exit(1)
 
-        logger.debug(
-            "Attempting to refresh server data to check connection..."
-        )
+        logger.debug("Attempting to refresh server data to check connection...")
         # TODO: Using full server data pull just for connectivity check is inefficient.
         # Consider a lighter API check if available in the library or a simple HTTP GET.
         success = pull_server_data(force=True)
@@ -686,9 +685,19 @@ def get_transferred_data():
 
 
 def patch_passfile(passfile):
-    with open(passfile, "r") as f:
-        ovpn_username = f.readline()
-        ovpn_password = f.readline()
+    try:
+        with open(passfile, "r") as f:
+            ovpn_username = f.readline()
+            ovpn_password = f.readline()
+    except FileNotFoundError:
+        print(
+            f"[!] Password file not found at {passfile}\\n"
+            "[!] Please make sure you have initialized the client "
+            "with 'protonvpn init'"
+        )
+        logger.error(f"Password file not found: {passfile}")
+        sys.exit(1)
+
     if CLIENT_SUFFIX not in ovpn_username.strip().split("+")[1:]:
         # Let's append the CLIENT_SUFFIX
         with open(passfile, "w") as f:
