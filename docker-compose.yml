@@ -4,10 +4,11 @@ networks:
 
 services:
   protonvpn-cli:
-    # image: ghcr.io/jonasjancarik/protonvpn-cli-community:master
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/jonasjancarik/protonvpn-cli-community:master
+    # or for local builds (e.g. for testing)
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     # Required for modifying network interfaces and routing table.
     privileged: true
     cap_add: [ NET_ADMIN ]
