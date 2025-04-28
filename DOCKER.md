@@ -16,16 +16,16 @@ Create a `.env` file in the project root with your ProtonVPN credentials:
 ```bash
 PROTONVPN_USERNAME=your_username
 PROTONVPN_PASSWORD=your_password
-PROTONVPN_TIER=1  # Optional: Your ProtonVPN tier (1, 2, or 3)
-PROTONVPN_PROTOCOL=udp  # Optional: Connection protocol (udp or tcp)
-OPENVPN_USERNAME=your_openvpn_username  # Optional: Your OpenVPN username (defaults to PROTONVPN_USERNAME)
-OPENVPN_PASSWORD=your_openvpn_password  # Optional: Your OpenVPN password (defaults to PROTONVPN_PASSWORD)
+OPENVPN_USERNAME=your_openvpn_username  # get it from https://account.protonvpn.com/account-password#openvpn
+OPENVPN_PASSWORD=your_openvpn_password
+PROTONVPN_TIER=1  # Optional: Your ProtonVPN tier (1=Free, 2=Basic, 3=Plus/Visionary (default: 1))
+PROTONVPN_PROTOCOL=udp  # Optional: Connection protocol (UDP or TCP, defaults to UDP)
 ```
 
 ### Building and Starting the Container
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 This will build the Docker image and start a container in detached mode.
@@ -40,15 +40,15 @@ docker exec -it protonvpn-cli bash
 
 # Inside the container, you can run ProtonVPN commands
 protonvpn --help
-protonvpn init  # Initialize ProtonVPN
 protonvpn connect  # Connect to ProtonVPN
 protonvpn status  # Check connection status
 protonvpn disconnect  # Disconnect from ProtonVPN
+protonvpn init  # Initialize ProtonVPN - this is done automatically on startup
 ```
 
 ### Using as a Service Provider
 
-The Docker setup is designed to allow other containers to use the VPN connection. This is achieved through Docker's network mode feature. The example service in the docker-compose.yml demonstrates this:
+The Docker setup is designed to allow other containers to use the VPN connection. This is achieved through Docker's network mode feature. The example service in the docker compose.yml demonstrates this:
 
 ```yaml
 example-service:
@@ -119,17 +119,17 @@ If you encounter issues with the VPN connection, ensure that:
 You can check the logs with:
 
 ```bash
-docker-compose logs
+docker compose logs
 ```
 
 ## Stopping the Container
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 To remove the persistent volume as well:
 
 ```bash
-docker-compose down -v
+docker compose down -v
 ``` 
