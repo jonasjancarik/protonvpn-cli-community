@@ -48,7 +48,7 @@ protonvpn init  # Initialize ProtonVPN - this is done automatically on startup
 
 ### Using as a Service Provider
 
-The Docker setup is designed to allow other containers to use the VPN connection. This is achieved through Docker's network mode feature. The example service in the docker compose.yml demonstrates this:
+The Docker setup is designed to allow other containers to use the VPN connection. This is achieved through Docker's network mode feature. The example service in the docker-compose.yml demonstrates this:
 
 ```yaml
 example-service:

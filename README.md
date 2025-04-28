@@ -29,8 +29,8 @@ For updating, you just need to pull the latest version of the repository with gi
 
 ### Docker Compose
 
-> [!WARNING]  
-> At the moment, Docker setup is not fully functional - you may be able to connect but there seems to be an issue with terminating connections. This might have something to do with the way a VPN connection is established on startup in vpn-entrypoint.sh
+> [!NOTE]  
+> See `DOCKER.md` for more details on how to use this in Docker Compose setups.
 
 See the example in `docker-compose.yml` which will set up an example service and networking to route all requests from the example service through the ProtonVPN client.
 
@@ -52,7 +52,7 @@ To control the client from the other containers, use the HTTP API (see below). D
 2. Start the containers:
 
    ```bash
-   docker-compose up -d
+   docker composeup -d
    ```
 
    This will pull the pre-built image from GitHub Container Registry (`ghcr.io/jonasjancarik/protonvpn-cli-community:master`) and start the containers.
@@ -60,7 +60,7 @@ To control the client from the other containers, use the HTTP API (see below). D
 3. Check the logs to ensure the VPN connection is established:
 
    ```bash
-   docker-compose logs -f protonvpn-cli
+   docker composelogs -f protonvpn-cli
    ```
 
 #### How It Works
