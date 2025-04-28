@@ -509,7 +509,7 @@ def openvpn_connect(servername, protocol):
         "--dev-type",
         "tun",
         "--log",
-        ovpn_log_file, # Use the dynamically generated path
+        ovpn_log_file,  # Use the dynamically generated path
     ]
 
     if int(get_config_value("USER", "ping")) and int(
@@ -536,14 +536,16 @@ def openvpn_connect(servername, protocol):
     # Read from the correct log file path
     # Check if the log file exists before trying to open it
     log_wait_start = time.time()
-    while not os.path.exists(ovpn_log_file) and time.time() - log_wait_start < 5: # Wait up to 5s for log file
+    while (
+        not os.path.exists(ovpn_log_file) and time.time() - log_wait_start < 5
+    ):  # Wait up to 5s for log file
         time.sleep(0.1)
 
     if not os.path.exists(ovpn_log_file):
         logger.error(f"OpenVPN log file did not appear: {ovpn_log_file}")
         print("[!] Connection failed. OpenVPN log file not found.")
         # Attempt cleanup or exit
-        disconnect(passed=True) # Attempt to clean up any partial connection
+        disconnect(passed=True)  # Attempt to clean up any partial connection
         sys.exit(1)
 
     try:
@@ -623,7 +625,9 @@ def openvpn_connect(servername, protocol):
         check_update()
 
     except FileNotFoundError:
-        logger.error(f"OpenVPN log file disappeared or couldn't be opened: {ovpn_log_file}")
+        logger.error(
+            f"OpenVPN log file disappeared or couldn't be opened: {ovpn_log_file}"
+        )
         print("[!] Connection monitoring failed. Log file issue.")
         # Attempt cleanup or exit
         disconnect(passed=True)
@@ -692,7 +696,7 @@ def manage_dns(mode, dns_server=False):
 
         with open(resolvconf_path, "rb") as f:
             filehash = zlib.crc32(f.read())
-        set_config_value("metadata", "resolvconf_hash", filehash)
+        set_config_value("metadata", "resolvconf_hash", str(filehash))
 
     elif mode == "restore":
         logger.debug("Restoring DNS")

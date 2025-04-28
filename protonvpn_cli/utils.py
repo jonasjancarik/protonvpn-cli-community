@@ -23,7 +23,7 @@ from .constants import (
     CONFIG_FILE,
     SERVER_INFO_FILE,
     SPLIT_TUNNEL_FILE,
-    VERSION,
+    # VERSION,  # we could use this for the API identification, but it blocks low version numbers as no longer supported
     OVPN_FILE,
     CLIENT_SUFFIX,
 )
@@ -78,8 +78,9 @@ def pull_server_data(force=False, username=None, password=None):
 
     # Define metadata for the client application
     client_meta = ClientTypeMetadata(
+        # hardcoded arbitary version number, otherwise we risk gettin blocked for this version of the app no longer being supported
         type="cli-community",
-        version=VERSION,  # Use imported VERSION
+        version="99.99.99",
     )
 
     # Create the API object
@@ -90,24 +91,22 @@ def pull_server_data(force=False, username=None, password=None):
         try:
             login_result = await api.login(username, password)
             if login_result.twofa_required:
-                logger.debug("2FA required, cannot proceed with library")
-                # For CLI, we'll need to handle 2FA differently
-                # For now, we'll just return False if 2FA is required
+                logger.error("2FA required, cannot proceed with library")
                 return False
             if not login_result.authenticated:
-                logger.debug("Authentication failed")
+                logger.error("Authentication failed")
                 return False
             logger.debug("Authentication successful")
             return True
         except Exception as e:
-            logger.debug(f"Authentication error: {e}")
+            logger.error(f"Authentication error during API login: {e}", exc_info=True)
             return False
 
     # Run the authentication
     auth_success = asyncio.run(authenticate())
 
     if not auth_success:
-        logger.debug("Failed to authenticate with ProtonVPN API")
+        logger.error("Failed to authenticate with ProtonVPN API library")
         return False
 
     # Enable the refresher to get server data
@@ -119,19 +118,20 @@ def pull_server_data(force=False, username=None, password=None):
             start_time = time.time()
             while not api.refresher.is_vpn_data_ready:
                 if time.time() - start_time > timeout:
-                    logger.debug("Timed out waiting for VPN data")
+                    logger.error("Timed out waiting for VPN data from API library")
                     return False
                 await asyncio.sleep(0.5)
+            logger.debug("Refresher enabled and data ready.")
             return True
         except Exception as e:
-            logger.debug(f"Error enabling refresher: {e}")
+            logger.error(f"Error enabling API refresher: {e}", exc_info=True)
             return False
 
     # Run the refresher
     refresher_success = asyncio.run(enable_refresher())
 
     if not refresher_success:
-        logger.debug("Failed to enable refresher")
+        logger.error("Failed to enable refresher or get VPN data")
         return False
 
     # Get the server list data
@@ -199,20 +199,35 @@ def get_config_value(group, key):
 
 
 def set_config_value(group, key, value):
-    """Write a specific value to CONFIG_FILE"""
-
+    """Set specific value in CONFIG_FILE"""
     config = configparser.ConfigParser()
     config.read(CONFIG_FILE)
-    config[group][key] = str(value)
 
-    logger.debug("Writing {0} to [{1}] in config file".format(key, group))
+    if not config.has_section(group):
+        config.add_section(group)
+
+    config[group][key] = str(value)
 
     with open(CONFIG_FILE, "w+") as f:
         config.write(f)
 
 
+def remove_config_value(group, key):
+    """Remove a specific key from a group in CONFIG_FILE"""
+    config = configparser.ConfigParser()
+    config.read(CONFIG_FILE)
+
+    if config.has_section(group) and config.has_option(group, key):
+        config.remove_option(group, key)
+        logger.debug(f"Removed [{group}] {key} from config.")
+        with open(CONFIG_FILE, "w") as f:
+            config.write(f)
+    else:
+        logger.debug(f"Key [{group}] {key} not found in config, nothing to remove.")
+
+
 def get_ip_info():
-    """Return the current public IP Address and ISP"""
+    """Return current IP address and ISP info using ipinfo.io"""
     logger.debug("Getting IP Information")
     try:
         # Use ipify.org to get the public IP address

@@ -323,7 +323,19 @@ def _configure_profile(
     set_config_value("USER", "password", password)
 
     # Pull server data using the new API library
-    pull_server_data(force=True, username=username, password=password)
+    print("Pulling server configuration...")
+    if not pull_server_data(force=True, username=username, password=password):
+        print("Error: Failed to pull server configuration.")
+        print("Please check your credentials and network connection.")
+        # Optional: Check and print logs if available
+        log_path = os.path.join(CONFIG_DIR, "protonvpn-cli.log")
+        if os.path.exists(log_path):
+            print(f"---- {log_path} ----")
+            with open(log_path, "r") as log_file:
+                print(log_file.read())
+            print("--------------------------")
+        sys.exit(1)  # Exit if pull failed
+    print("Server configuration pulled successfully.")
 
     # Adjust tier value to match API requirements
     if tier == 4:
