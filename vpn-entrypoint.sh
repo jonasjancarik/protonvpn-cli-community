@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-# Install the package in development mode
-echo "Installing package in development mode..."
-pip install -e .
+# # Install the package in development mode
+# echo "Installing package in development mode..."
+# pip install -e .
 
 # Enable IP forwarding
 echo "Enabling IP forwarding..."
@@ -43,21 +43,33 @@ connect_vpn_with_retry() {
 echo "Initializing ProtonVPN..."
 protonvpn init --username $PROTONVPN_USERNAME --password $PROTONVPN_PASSWORD --tier $PROTONVPN_TIER --protocol $PROTONVPN_PROTOCOL --openvpn-username "$OPENVPN_USERNAME" --openvpn-password "$OPENVPN_PASSWORD" --force
 
-# Verify that the passfile was created with the OpenVPN credentials
-echo "Verifying passfile..."
-if [ -f ~/.pvpn-cli/pvpnpass ]; then
-    echo "Passfile created successfully."
-    # Display the first line of the passfile (username) to verify it's using the OpenVPN credentials
-    head -n 1 ~/.pvpn-cli/pvpnpass
-else
-    echo "Error: Passfile not created."
+# Check if serverinfo.json was created
+if [ ! -f ~/.pvpn-cli/serverinfo.json ]; then
+    echo "Error: serverinfo.json not found after initialization. Server data pull likely failed."
+    # Optional: Print logs if available
+    if [ -f ~/.pvpn-cli/protonvpn-cli.log ]; then
+        echo "---- protonvpn-cli.log ----"
+        cat ~/.pvpn-cli/protonvpn-cli.log
+        echo "--------------------------"
+    fi
+    exit 1
 fi
 
-# # Attempt to connect with retries
-# if ! connect_vpn_with_retry; then
-#     echo "Fatal: Could not establish VPN connection after multiple attempts"
-#     exit 1
+# # Verify that the passfile was created with the OpenVPN credentials
+# echo "Verifying passfile..."
+# if [ -f ~/.pvpn-cli/pvpnpass ]; then
+#     echo "Passfile created successfully."
+#     # Display the first line of the passfile (username) to verify it's using the OpenVPN credentials
+#     head -n 1 ~/.pvpn-cli/pvpnpass
+# else
+#     echo "Error: Passfile not created."
 # fi
+
+# Attempt to connect with retries
+if ! connect_vpn_with_retry; then
+    echo "Fatal: Could not establish VPN connection after multiple attempts"
+    exit 1
+fi
 
 # Launch the API server in the background
 echo "Starting ProtonVPN API server..."

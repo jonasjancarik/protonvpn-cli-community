@@ -1,25 +1,26 @@
-version: '3.8'
+# .devcontainer/docker-compose.yml  ← listed *after* the prod file
+version: "3.8"
+
 services:
-  # Update this to match the service name in your main docker-compose.yml
   protonvpn-cli:
-    # Uncomment if you want to override the service's Dockerfile to one in the .devcontainer 
-    # folder. Note that the path of the Dockerfile and context is relative to the *primary* 
-    # docker-compose.yml file (the first in the devcontainer.json "dockerComposeFile"
-    # array). The sample below assumes your primary file is in the root of your project.
-    #
-    # build:
-    #   context: .
-    #   dockerfile: .devcontainer/Dockerfile
-    
+    # Override the image source to build locally
+    build:
+      dockerfile: Dockerfile # Dockerfile is located directly in the context directory.
+    image: protonvpn-cli-dev # Name the built image for clarity
+    # Override the default command to keep the container alive idly
+    # The ENTRYPOINT remains `/usr/bin/tini --`, so tini is still PID 1
+    command: sleep infinity
+    # Disable the healthcheck defined in the base compose file
+    healthcheck:
+      disable: true
+    # Mount the project workspace and persist config
     volumes:
       # Mount the project directory to the container for development
       - ..:/workspaces/${localWorkspaceFolderBasename}:cached
       # Keep the persistent volume for ProtonVPN configuration
       - protonvpn-config:/root/.pvpn-cli
-    
-    # Overrides default command so the container doesn't shut down
-    # command: /bin/sh -c "while sleep 1000; do :; done"
 
-volumes:
-  protonvpn-config:
-    driver: local 
+  # Define the example-service but assign it to a profile that won't be active by default
+  # This effectively hides it unless explicitly requested with `docker compose --profile prod up`
+  example-service:
+    profiles: [ "prod" ]

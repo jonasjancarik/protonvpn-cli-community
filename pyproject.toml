@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "protonvpn_cli"
+version = "3.0.0" # Version obtained from protonvpn_cli/constants.py
+description = "Linux command-line client for ProtonVPN"
+readme = "README.md"
+requires-python = ">=3.5"
+license = {text = "GPL-3.0-or-later"}
+authors = [
+    {name = "Proton Technologies AG", email = "contact@protonvpn.com"},
+    {name = "Rafficer", email = "rafficer@ncrypt.sh"},
+    {name = "Jonas Jancarik"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.5",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+]
+dependencies = [
+    "requests==2.32.3",
+    "docopt==0.6.2",
+    "pythondialog==3.5.3",
+    "jinja2==3.1.6",
+    "fastapi==0.115.12",
+    "uvicorn==0.34.2",
+    'proton-core @ git+https://github.com/ProtonVPN/python-proton-core/@e87d1e3b5fc70883adc02ef2e2d9b0eb360b83ba',
+    'proton-vpn-api-core @ git+https://github.com/jonasjancarik/python-proton-vpn-api-core.git@fix/remove-devtools-submodule-v0.42.4',
+]
+
+[project.urls]
+Homepage = "https://github.com/protonvpn/linux-cli-community"
+
+[project.scripts]
+protonvpn = "protonvpn_cli.cli:main"
+
+[tool.setuptools]
+packages = ["protonvpn_cli"]
+
+[tool.setuptools.package-data]
+# Include template files used by Jinja2
+"protonvpn_cli" = ["templates/*"] 

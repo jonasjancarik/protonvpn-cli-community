@@ -4,20 +4,21 @@ networks:
 
 services:
   protonvpn-cli:
-    image: ghcr.io/jonasjancarik/protonvpn-cli-community:master
-    restart: unless-stopped
+    # image: ghcr.io/jonasjancarik/protonvpn-cli-community:master
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Required for modifying network interfaces and routing table.
     privileged: true
-    cap_add:
-      - NET_ADMIN
-      - SYS_MODULE
+    cap_add: [ NET_ADMIN ]
+    # Mount the TUN device for VPN connections.
     devices:
       - /dev/net/tun:/dev/net/tun
+    # Persist ProtonVPN configuration and login state.
     volumes:
       - protonvpn-config:/root/.pvpn-cli
     networks:
       - vpn_network
-    # Use a custom entrypoint script to set up routing
-    entrypoint: ["/bin/bash", "/vpn-entrypoint.sh"]
     # Use this container as a service provider for others
     env_file:
       - .env
@@ -29,23 +30,28 @@ services:
       - PROTONVPN_TIER=${PROTONVPN_TIER:-1}
       - PROTONVPN_PROTOCOL=${PROTONVPN_PROTOCOL:-udp}
       - VPN_ENABLE_KILLSWITCH=true  # Optional: Enable kill switch for better security
+    # Check if the VPN connection is active.
     healthcheck:
-      test: ["CMD-SHELL", "protonvpn status | grep -q 'Connected'"]
+      test: [ "CMD-SHELL", "protonvpn status | grep -q Connected" ]
       interval: 10s
       timeout: 10s
+      retries: 3
+      start_period: 15s # Give time for the initial connection
 
-  # Example service that will use the VPN connection
+  # Example service using the VPN connection.
   example-service:
-    image: alpine:latest
+    image: alpine
+    # Wait until the protonvpn-cli service is healthy (VPN connected).
     depends_on:
       protonvpn-cli:
         condition: service_healthy
-    # Remove the networks section since we're using network_mode
+    # Use the network stack of the protonvpn-cli service.
     network_mode: "service:protonvpn-cli"
-    restart: unless-stopped
-    # Optional command to test the connection
-    command: ["sh", "-c", "apk add --no-cache curl && while :; do echo 'Current IP:' && curl -s https://api.ipify.org && echo -e '\n' && sleep 5; done"]
+    # Continuously check external IP using curl.
+    command: [ "sh", "-c",
+               "apk add --no-cache curl && while :; do curl -s https://api.ipify.org; echo; sleep 5; done" ]
 
 volumes:
   protonvpn-config:
+    # Define the named volume for ProtonVPN configuration.
     driver: local

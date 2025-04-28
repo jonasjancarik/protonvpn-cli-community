@@ -1,8 +1,0 @@
-proton-vpn-api-core @ git+https://github.com/jonasjancarik/python-proton-vpn-api-core.git@fix/remove-devtools-submodule-v0.42.4
-proton-core @ git+https://github.com/ProtonVPN/python-proton-core/@e87d1e3b5fc70883adc02ef2e2d9b0eb360b83ba
-requests==2.32.3
-docopt==0.6.2
-pythondialog==3.5.3
-jinja2==3.1.6
-fastapi==0.115.12
-uvicorn==0.34.2

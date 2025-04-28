@@ -1,12 +1,15 @@
+# Using 22.04 - ran into an issue with installing system-wide on 24.04 
 FROM ubuntu:22.04
+# Install uv without /uvx (we don't need it)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Python and system dependencies
+# Install Python and other system dependencies
 RUN apt-get update && apt-get install -y \
     python3 \
-    python3-pip \
+    # python3-pip \
     openvpn \
     dialog \
     iptables \
@@ -15,32 +18,31 @@ RUN apt-get update && apt-get install -y \
     iproute2 \
     procps \
     git \
+    tini \
+    gnupg \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements and install dependencies
-COPY requirements.txt .
-RUN pip3 install --upgrade pip
-RUN pip3 install --no-cache-dir -r requirements.txt
-
-# Copy the application code
+# Copy the application code including pyproject.toml
 COPY . .
-
-# Install the application
-RUN pip3 install -e .
 
 # The application needs to run as root
 USER root
+
+# Install the application using uv
+# uv automatically uses pyproject.toml
+RUN uv pip install -e . --system
 
 # Make the entrypoint script executable
 COPY vpn-entrypoint.sh /vpn-entrypoint.sh
 RUN chmod +x /vpn-entrypoint.sh
 
-# Set the entrypoint to our script
-# ENTRYPOINT ["/vpn-entrypoint.sh"]
+# ENTRYPOINT [\"/usr/bin/tini\", \"--\"]   # PID 1 = tini, always, can reap zombie processes
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD "/vpn-entrypoint.sh"           # what happens in "normal" runs
 
 # open the shell
 # CMD ["tail", "-f", "/dev/null"]
