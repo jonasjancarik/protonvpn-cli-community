@@ -1,9 +1,10 @@
 # ProtonVPN CLI
 
-This is a fork of https://github.com/Rafficer/linux-cli-community with some new features, such as:
+This is a fork of <https://github.com/Rafficer/linux-cli-community> with some new features, such as:
+
 - HTTP API
 - Docker setup
-- whitelist/blacklists 
+- whitelist/blacklists
 
 While an [official ProtonVPN Linux](https://protonvpn.com/blog/protonvpn-linux-app/) app is available, at this point it still doesn't include a command-line interface. This community Linux client is useful for automatad workflows, including in Docker Compose setups where it can serve as a VPN client for other containers.
 
@@ -21,6 +22,13 @@ It is recommended to do the manual installation in a virtual environment. Especi
 
    `cd protonvpn-cli-community`
 
+   if you are using nix
+
+   ```shell
+   python -m venv ./venv
+   source ./venv/bin/activate
+   ```
+
 3. Install
 
     `sudo pip3 install -e .`
@@ -34,7 +42,7 @@ For updating, you just need to pull the latest version of the repository with gi
 
 See the example in `docker-compose.yml` which will set up an example service and networking to route all requests from the example service through the ProtonVPN client.
 
-To control the client from the other containers, use the HTTP API (see below). Due to the way the networking is set up, `localhost` points to the ProtonVPN container, meaning API requests should also be directed to http://localhost:8000/.
+To control the client from the other containers, use the HTTP API (see below). Due to the way the networking is set up, `localhost` points to the ProtonVPN container, meaning API requests should also be directed to <http://localhost:8000/>.
 
 #### Setup Instructions
 
