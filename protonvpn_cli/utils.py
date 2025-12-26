@@ -23,7 +23,7 @@ from .constants import (
     CONFIG_FILE,
     SERVER_INFO_FILE,
     SPLIT_TUNNEL_FILE,
-    # VERSION,  # we could use this for the API identification, but it blocks low version numbers as no longer supported
+    VERSION,  # we could use this for the API identification, but it blocks low version numbers as no longer supported
     OVPN_FILE,
     CLIENT_SUFFIX,
 )
