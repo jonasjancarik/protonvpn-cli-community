@@ -24,6 +24,7 @@ jobs:
           echo "Detected version: $VERSION"
 
       - name: Create Release
+        id: create_release
         uses: ncipollo/release-action@v1
         with:
           tag: v${{ steps.get_version.outputs.VERSION }}
@@ -31,3 +32,10 @@ jobs:
           generateReleaseNotes: true
           allowUpdates: false
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Latest Tag
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f latest v${{ steps.get_version.outputs.VERSION }}
+          git push -f origin latest

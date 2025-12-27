@@ -13,11 +13,11 @@ While an [official ProtonVPN Linux](https://protonvpn.com/blog/protonvpn-linux-a
 Install directly from GitHub without cloning:
 
 ```bash
-# Using pip (latest release):
-sudo pip3 install git+https://github.com/jonasjancarik/protonvpn-cli-community.git@v3.1.1
+# Using pip (latest stable release):
+sudo pip3 install git+https://github.com/jonasjancarik/protonvpn-cli-community.git@latest
 
-# Or using uv (latest release):
-sudo uv pip install git+https://github.com/jonasjancarik/protonvpn-cli-community.git@v3.1.1 --system
+# Or using uv (latest stable release):
+sudo uv pip install git+https://github.com/jonasjancarik/protonvpn-cli-community.git@latest --system
 
 # To stay on the bleeding edge (master branch):
 # sudo pip3 install git+https://github.com/jonasjancarik/protonvpn-cli-community.git

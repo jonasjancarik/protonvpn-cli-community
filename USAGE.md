@@ -54,11 +54,11 @@ This document provides an extensive guide on how to install and use this fork of
 If you don't need to modify the source code, you can install directly from GitHub. Both the `master` branch and official [GitHub Releases](https://github.com/jonasjancarik/protonvpn-cli-community/releases) are supported:
 
 ```bash
-# Using pip (latest release):
-sudo pip3 install git+https://github.com/jonasjancarik/protonvpn-cli-community.git@v3.1.1
+# Using pip (latest stable release):
+sudo pip3 install git+https://github.com/jonasjancarik/protonvpn-cli-community.git@latest
 
-# Or using uv (latest release):
-sudo uv pip install git+https://github.com/jonasjancarik/protonvpn-cli-community.git@v3.1.1 --system
+# Or using uv (latest stable release):
+sudo uv pip install git+https://github.com/jonasjancarik/protonvpn-cli-community.git@latest --system
 ```
 
 To install the bleeding-edge version from the `master` branch:
@@ -67,9 +67,9 @@ To install the bleeding-edge version from the `master` branch:
 **To update**, add `--upgrade`:
 
 ```bash
-sudo pip3 install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git@v3.1.1
+sudo pip3 install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git@latest
 # or
-sudo uv pip install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git@v3.1.1 --system
+sudo uv pip install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git@latest --system
 ```
 
 Updates are also announced via the CLI and tracked on the GitHub Releases page.
