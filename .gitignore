@@ -133,4 +133,5 @@ t/
 .DS_Store
 
 # Agent state and workflows
-.agent/
+.agent/*
+!.agent/workflows/
