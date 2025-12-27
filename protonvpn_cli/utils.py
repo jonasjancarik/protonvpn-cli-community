@@ -561,21 +561,26 @@ def check_update():
     set_config_value("metadata", "last_update_check", int(time.time()))
 
     if update_available:
+        latest_v_str = ".".join([str(x) for x in latest_version])
         print()
         print(
-            "A new Update for ProtonVPN-CLI Community (v{0}) ".format(
-                ".".join([str(x) for x in latest_version])
-            )
+            "A new Update for ProtonVPN-CLI Community (v{0}) ".format(latest_v_str)
             + "is available.\n"
-            + "To update, run one of the following:\n"
+            + "To update to the latest release, run one of the following:\n"
             + "\n"
             + "  # with pip:\n"
-            + "  pip install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git\n"
+            + "  pip install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git@v{0}\n".format(
+                latest_v_str
+            )
             + "  # or with uv:\n"
-            + "  uv pip install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git\n"
+            + "  uv pip install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git@v{0}\n".format(
+                latest_v_str
+            )
             + "\n"
             + "For more info, see:\n"
-            + "https://github.com/jonasjancarik/protonvpn-cli-community"
+            + "https://github.com/jonasjancarik/protonvpn-cli-community/releases/tag/v{0}".format(
+                latest_v_str
+            )
         )
 
 
