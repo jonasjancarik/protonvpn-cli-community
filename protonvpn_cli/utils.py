@@ -496,23 +496,30 @@ def check_update():
     """Return the download URL if an Update is available, False if otherwise"""
 
     def get_latest_version():
-        """Return the latest version from pypi"""
-        logger.debug("Calling pypi API")
+        """Return the latest version from GitHub Releases"""
+        logger.debug("Calling GitHub API")
         try:
-            r = requests.get("https://pypi.org/pypi/protonvpn-cli/json")
+            r = requests.get(
+                "https://api.github.com/repos/jonasjancarik/protonvpn-cli-community/releases/latest"
+            )
         except (
             requests.exceptions.ConnectionError,
             requests.exceptions.ConnectTimeout,
         ):
-            logger.debug("Couldn't connect to pypi API")
+            logger.debug("Couldn't connect to GitHub API")
             return False
         try:
             r.raise_for_status()
         except requests.exceptions.HTTPError:
-            logger.debug("HTTP Error with pypi API: {0}".format(r.status_code))
+            logger.debug("HTTP Error with GitHub API: {0}".format(r.status_code))
             return False
 
-        release = r.json()["info"]["version"]
+        # version tag is usually vX.Y.Z, we want to strip the 'v'
+        tag_name = r.json().get("tag_name", "")
+        if tag_name.startswith("v"):
+            release = tag_name[1:]
+        else:
+            release = tag_name
 
         return release
 
@@ -556,12 +563,13 @@ def check_update():
     if update_available:
         print()
         print(
-            "A new Update for ProtonVPN-CLI (v{0}) ".format(
+            "A new Update for ProtonVPN-CLI Community (v{0}) ".format(
                 ".".join([str(x) for x in latest_version])
             )
             + "is available.\n"
             + "To update, run one of the following:\n"
             + "\n"
+            + "  # with pip:\n"
             + "  pip install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git\n"
             + "  # or with uv:\n"
             + "  uv pip install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git\n"

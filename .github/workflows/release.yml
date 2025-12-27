@@ -1,0 +1,33 @@
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'protonvpn_cli/constants.py'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get Version
+        id: get_version
+        run: |
+          VERSION=$(grep 'VERSION =' protonvpn_cli/constants.py | cut -d '"' -f 2)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Detected version: $VERSION"
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ steps.get_version.outputs.VERSION }}
+          name: Release v${{ steps.get_version.outputs.VERSION }}
+          generateReleaseNotes: true
+          allowUpdates: false
+          token: ${{ secrets.GITHUB_TOKEN }}
