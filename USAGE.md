@@ -9,7 +9,8 @@ This document provides an extensive guide on how to install and use this fork of
 - [ProtonVPN-CLI Usage Documentation](#protonvpn-cli-usage-documentation)
   - [Table of Contents](#table-of-contents)
   - [Installation & Updating](#installation--updating)
-    - [Manual Installation from Source (Recommended)](#manual-installation-from-source-recommended)
+    - [Quick Install from GitHub (pip/uv)](#quick-install-from-github-pipuv)
+    - [Manual Installation from Source (Recommended for Development)](#manual-installation-from-source-recommended-for-development)
       - [Dependencies](#dependencies)
       - [Install Steps](#install-steps)
       - [Updating](#updating)
@@ -48,7 +49,30 @@ This document provides an extensive guide on how to install and use this fork of
 
 ## Installation & Updating
 
-### Manual Installation from Source (Recommended)
+### Quick Install from GitHub (pip/uv)
+
+If you don't need to modify the source code, you can install directly from GitHub:
+
+```bash
+# Using pip:
+sudo pip3 install git+https://github.com/jonasjancarik/protonvpn-cli-community.git
+
+# Or using uv:
+sudo uv pip install git+https://github.com/jonasjancarik/protonvpn-cli-community.git --system
+```
+
+**To update**, add `--upgrade`:
+
+```bash
+sudo pip3 install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git
+# or
+sudo uv pip install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git --system
+```
+
+> [!NOTE]
+> This method installs the package globally and requires root privileges because `protonvpn` must manage network interfaces.
+
+### Manual Installation from Source (Recommended for Development)
 
 This is the primary method for installing this specific fork (`jonasjancarik/protonvpn-cli-community`).
 

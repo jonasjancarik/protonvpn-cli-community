@@ -9,6 +9,20 @@ While an [official ProtonVPN Linux](https://protonvpn.com/blog/protonvpn-linux-a
 
 ## Installation & Updating
 
+### Quick Install (pip/uv)
+
+Install directly from GitHub without cloning:
+
+```bash
+# Using pip:
+sudo pip3 install git+https://github.com/jonasjancarik/protonvpn-cli-community.git
+
+# Or using uv:
+sudo uv pip install git+https://github.com/jonasjancarik/protonvpn-cli-community.git --system
+```
+
+To update, add `--upgrade` to the same command.
+
 ### Manual Installation from source
 
 It is recommended to do the manual installation in a virtual environment. Especially if it serves the purpose of developing.
