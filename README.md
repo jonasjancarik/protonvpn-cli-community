@@ -20,7 +20,7 @@ sudo pip3 install git+https://github.com/jonasjancarik/protonvpn-cli-community.g
 sudo uv pip install git+https://github.com/jonasjancarik/protonvpn-cli-community.git --system
 ```
 
-To update, add `--upgrade` to the same command.
+To update, add `--upgrade` to the same command. The package is also available as [GitHub Releases](https://github.com/jonasjancarik/protonvpn-cli-community/releases).
 
 ### Manual Installation from source
 

@@ -37,7 +37,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/protonvpn/linux-cli-community"
+Homepage = "https://github.com/jonasjancarik/protonvpn-cli-community"
 
 [project.scripts]
 protonvpn = "protonvpn_cli.cli:main"

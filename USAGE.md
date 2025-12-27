@@ -51,7 +51,7 @@ This document provides an extensive guide on how to install and use this fork of
 
 ### Quick Install from GitHub (pip/uv)
 
-If you don't need to modify the source code, you can install directly from GitHub:
+If you don't need to modify the source code, you can install directly from GitHub. Both the `master` branch and official [GitHub Releases](https://github.com/jonasjancarik/protonvpn-cli-community/releases) are supported:
 
 ```bash
 # Using pip:
@@ -68,6 +68,8 @@ sudo pip3 install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-c
 # or
 sudo uv pip install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git --system
 ```
+
+Updates are also announced via the CLI and tracked on the GitHub Releases page.
 
 > [!NOTE]
 > This method installs the package globally and requires root privileges because `protonvpn` must manage network interfaces.
