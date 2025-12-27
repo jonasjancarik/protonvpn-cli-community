@@ -131,3 +131,6 @@ t/
 
 # .DS_Store
 .DS_Store
+
+# Agent state and workflows
+.agent/
