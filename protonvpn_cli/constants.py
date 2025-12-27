@@ -18,4 +18,4 @@ SPLIT_TUNNEL_FILE = os.path.join(CONFIG_DIR, "split_tunnel.txt")
 OVPN_FILE = os.path.join(CONFIG_DIR, "connect.ovpn")
 PASSFILE = os.path.join(CONFIG_DIR, "ovpnpass")
 CLIENT_SUFFIX = "f1"  # Block malware
-VERSION = "3.1.1"
+VERSION = "3.1.2"
