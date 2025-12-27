@@ -23,7 +23,7 @@ from .constants import (
     CONFIG_FILE,
     SERVER_INFO_FILE,
     SPLIT_TUNNEL_FILE,
-    # VERSION,  # we could use this for the API identification, but it blocks low version numbers as no longer supported
+    VERSION,  # we could use this for the API identification, but it blocks low version numbers as no longer supported
     OVPN_FILE,
     CLIENT_SUFFIX,
 )
@@ -560,11 +560,14 @@ def check_update():
                 ".".join([str(x) for x in latest_version])
             )
             + "is available.\n"
-            + "Follow the Update instructions on\n"
-            + "https://github.com/ProtonVPN/linux-cli-community/blob/master/USAGE.md#updating-protonvpn-cli\n"
+            + "To update, run one of the following:\n"
             + "\n"
-            + "To see what's new, check out the changelog:\n"
-            + "https://github.com/ProtonVPN/linux-cli-community/blob/master/CHANGELOG.md"
+            + "  pip install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git\n"
+            + "  # or with uv:\n"
+            + "  uv pip install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git\n"
+            + "\n"
+            + "For more info, see:\n"
+            + "https://github.com/jonasjancarik/protonvpn-cli-community"
         )
 
 
