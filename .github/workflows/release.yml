@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Get Version
         id: get_version
@@ -31,11 +33,12 @@ jobs:
           name: Release v${{ steps.get_version.outputs.VERSION }}
           generateReleaseNotes: true
           allowUpdates: false
+          makeLatest: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update Latest Tag
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -f latest v${{ steps.get_version.outputs.VERSION }}
-          git push -f origin latest
+          git tag -f latest "${GITHUB_SHA}"
+          git push -f origin refs/tags/latest
