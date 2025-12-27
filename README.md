@@ -1,7 +1,5 @@
 # ProtonVPN CLI
 
-This is a fork of <https://github.com/Rafficer/linux-cli-community> with some new features, such as:
-
 - HTTP API
 - Docker setup
 - whitelist/blacklists
@@ -9,6 +7,20 @@ This is a fork of <https://github.com/Rafficer/linux-cli-community> with some ne
 While an [official ProtonVPN Linux](https://protonvpn.com/blog/protonvpn-linux-app/) app is available, at this point it still doesn't include a command-line interface. This community Linux client is useful for automatad workflows, including in Docker Compose setups where it can serve as a VPN client for other containers.
 
 ## Installation & Updating
+
+### Quick Install (pip/uv)
+
+Install directly from GitHub without cloning:
+
+```bash
+# Using pip:
+sudo pip3 install git+https://github.com/jonasjancarik/protonvpn-cli-community.git
+
+# Or using uv:
+sudo uv pip install git+https://github.com/jonasjancarik/protonvpn-cli-community.git --system
+```
+
+To update, add `--upgrade` to the same command.
 
 ### Manual Installation from source
 
@@ -20,14 +32,16 @@ It is recommended to do the manual installation in a virtual environment. Especi
 
 2. Step into the directory
 
-   `cd protonvpn-cli-community`
+    `cd protonvpn-cli-community`
 
-   if you are using nix
+#### Nix Users
 
-   ```shell
-   python -m venv ./venv
-   source ./venv/bin/activate
-   ```
+On NixOS or other environments using Nix, the `/nix/store` is immutable. To install dependencies, you **must** use a virtual environment:
+
+```bash
+python -m venv ./venv
+source ./venv/bin/activate
+```
 
 3. Install
 
