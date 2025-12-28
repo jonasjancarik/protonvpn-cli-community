@@ -1,10 +1,14 @@
 # ProtonVPN CLI
 
-- HTTP API
-- Docker setup
-- whitelist/blacklists
-
-While an [official ProtonVPN Linux](https://protonvpn.com/blog/protonvpn-linux-app/) app is available, at this point it still doesn't include a command-line interface. This community Linux client is useful for automatad workflows, including in Docker Compose setups where it can serve as a VPN client for other containers.
+> [!NOTE]
+> **About This Fork**
+> 
+> This is a fork of the now-archived [Rafficer/linux-cli-community](https://github.com/Rafficer/linux-cli-community), which in turn was based on an older official ProtonVPN CLI. This fork has been updated to work with ProtonVPN's new APIs and includes additional features such as:
+> - **HTTP API** for programmatic control
+> - **Docker container support** with the ability to act as a "proxy" for other services in Docker Compose setups
+> - **Domain whitelisting/blacklisting**
+> 
+> **Note:** As of June 2025, there is again an [official ProtonVPN CLI](https://github.com/ProtonVPN/proton-vpn-cli). As of the end of 2025, the official CLI is very limited in comparison to this community version, but being an official tool, it has a higher chance of being maintained and updated in the future.
 
 ## Installation & Updating
 
