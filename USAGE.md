@@ -54,11 +54,28 @@ This document provides an extensive guide on how to install and use this fork of
 If you don't need to modify the source code, you can install directly from GitHub. Both the `master` branch and official [GitHub Releases](https://github.com/jonasjancarik/protonvpn-cli-community/releases) are supported:
 
 ```bash
-# Using pip (latest stable release):
-sudo pip3 install git+https://github.com/jonasjancarik/protonvpn-cli-community.git@latest
+# Using uv (recommended for isolation):
+uv tool install git+https://github.com/jonasjancarik/protonvpn-cli-community.git@latest
 
-# Or using uv (latest stable release):
-sudo uv pip install git+https://github.com/jonasjancarik/protonvpn-cli-community.git@latest --system
+# Or using pip:
+sudo pip3 install git+https://github.com/jonasjancarik/protonvpn-cli-community.git@latest
+```
+
+> [!IMPORTANT]
+> **Execution requires `sudo`**
+> Even when installed via `uv tool` without root privileges, the `protonvpn` command **must** be run with `sudo`. This is because it needs permissions to:
+> - Start `openvpn` and create `tun` interfaces.
+> - Modify system firewall rules using `iptables` and `ip6tables`.
+> - Update DNS settings in `/etc/resolv.conf`.
+>
+> Run it as:
+> ```bash
+> sudo $(which protonvpn) <command>
+> ```
+
+To update using `uv tool`:
+```bash
+uv tool upgrade protonvpn-cli
 ```
 
 To install the bleeding-edge version from the `master` branch:

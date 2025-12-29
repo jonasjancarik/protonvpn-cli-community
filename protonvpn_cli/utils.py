@@ -568,12 +568,11 @@ def check_update():
             + "is available.\n"
             + "To update to the latest release, run one of the following:\n"
             + "\n"
-            + "  # with pip:\n"
+            + "  # with uv (recommended):\n"
+            + "  uv tool upgrade protonvpn-cli\n"
+            + "\n"
+            + "  # or with pip:\n"
             + "  pip install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git@v{0}\n".format(
-                latest_v_str
-            )
-            + "  # or with uv:\n"
-            + "  uv pip install --upgrade git+https://github.com/jonasjancarik/protonvpn-cli-community.git@v{0}\n".format(
                 latest_v_str
             )
             + "\n"

@@ -17,15 +17,19 @@
 Install directly from GitHub without cloning:
 
 ```bash
-# Using pip (latest stable release):
+# Using uv (recommended for isolation):
+uv tool install git+https://github.com/jonasjancarik/protonvpn-cli-community.git@latest
+
+# Or using pip:
 sudo pip3 install git+https://github.com/jonasjancarik/protonvpn-cli-community.git@latest
-
-# Or using uv (latest stable release):
-sudo uv pip install git+https://github.com/jonasjancarik/protonvpn-cli-community.git@latest --system
-
-# To stay on the bleeding edge (master branch):
-# sudo pip3 install git+https://github.com/jonasjancarik/protonvpn-cli-community.git
 ```
+
+> [!IMPORTANT]
+> **Execution requires `sudo`**
+> While `uv tool install` doesn't require root, the CLI itself needs `sudo` to manage network interfaces, modify firewall rules (`iptables`), and update DNS settings. Run it as:
+> ```bash
+> sudo $(which protonvpn) <command>
+> ```
 
 To update, add `--upgrade` to the same command. The package is also available as [GitHub Releases](https://github.com/jonasjancarik/protonvpn-cli-community/releases).
 
