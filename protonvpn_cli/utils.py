@@ -90,8 +90,23 @@ def pull_server_data(force=False, username=None, password=None):
         try:
             login_result = await api.login(username, password)
             if login_result.twofa_required:
-                logger.error("2FA required, cannot proceed with library")
-                return False
+                twofa_code = (
+                    os.getenv("PROTONVPN_2FA")
+                    or os.getenv("PROTONVPN_2FA_CODE")
+                )
+                if not twofa_code:
+                    logger.error(
+                        "2FA required. Set PROTONVPN_2FA (or PROTONVPN_2FA_CODE) and retry."
+                    )
+                    return False
+                try:
+                    login_result = await api.submit_2fa_code(twofa_code.strip())
+                except Exception as e:
+                    logger.error(f"2FA submission failed: {e}", exc_info=True)
+                    return False
+                if login_result.twofa_required:
+                    logger.error("2FA required, invalid or expired token")
+                    return False
             if not login_result.authenticated:
                 logger.error("Authentication failed")
                 return False

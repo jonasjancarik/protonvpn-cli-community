@@ -16,6 +16,7 @@ Create a `.env` file in the project root with your ProtonVPN credentials:
 ```bash
 PROTONVPN_USERNAME=your_username
 PROTONVPN_PASSWORD=your_password
+PROTONVPN_2FA=123456  # Optional: 2FA code if enabled on your Proton account
 OPENVPN_USERNAME=your_openvpn_username  # get it from https://account.protonvpn.com/account-password#openvpn
 OPENVPN_PASSWORD=your_openvpn_password
 PROTONVPN_TIER=1  # Optional: Your ProtonVPN tier (1=Free, 2=Basic, 3=Plus/Visionary (default: 1))

@@ -76,6 +76,7 @@ To control the client from the other containers, use the HTTP API (see below). D
    ```
    PROTONVPN_USERNAME=your_username
    PROTONVPN_PASSWORD=your_password
+   PROTONVPN_2FA=123456  # Optional: 2FA code if enabled on your Proton account
    PROTONVPN_TIER=2  # Optional, defaults to 1
    PROTONVPN_PROTOCOL=udp  # Optional, defaults to udp
    OPENVPN_USERNAME=your_openvpn_username
