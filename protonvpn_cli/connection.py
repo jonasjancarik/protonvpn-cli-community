@@ -807,7 +807,7 @@ def manage_ipv6(mode):
             ipv6_addr = lines[1].strip()
 
         ipv6_info = subprocess.run(
-            "ip addr show dev {0} | grep '\<inet6.*global\>'".format(default_nic),  # noqa
+            "ip addr show dev {0} | grep '\\<inet6.*global\\>'".format(default_nic),  # noqa
             shell=True,
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
