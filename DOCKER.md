@@ -29,8 +29,9 @@ PROTONVPN_PROTOCOL=udp  # Optional: Connection protocol (UDP or TCP, defaults to
 docker compose up -d
 ```
 
-This will build the Docker image and start a container in detached mode.
-By default it pulls the pre-built image from GHCR; only builds locally if you uncomment the `build:` section in `docker-compose.yml`.
+This will pull the pre-built image from GHCR and start a container in detached mode.
+If you want to build locally from source, uncomment the `build:` section in `docker-compose.yml`.
+The default image tag is `latest` (stable). For master builds, switch to `:edge`.
 
 ### Running ProtonVPN Commands
 

@@ -4,7 +4,8 @@ networks:
 
 services:
   protonvpn-cli:
-    image: ghcr.io/jonasjancarik/protonvpn-cli-community:master
+    image: ghcr.io/jonasjancarik/protonvpn-cli-community:latest
+    # Use :edge for the latest master builds.
     # or for local builds (e.g. for testing)
     # build:
     #   context: .
