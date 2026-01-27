@@ -76,10 +76,9 @@ def pull_server_data(force=False, username=None, password=None):
             )
             return False
 
-    # Define metadata for the client application
+    # Define metadata for the client application (match official CLI)
     client_meta = ClientTypeMetadata(
-        # hardcoded arbitary version number, otherwise we risk gettin blocked for this version of the app no longer being supported
-        type="cli-community",
+        type="cli",
         version="99.99.99",
     )
 
