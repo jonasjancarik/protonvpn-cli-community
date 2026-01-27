@@ -30,6 +30,7 @@ docker compose up -d
 ```
 
 This will build the Docker image and start a container in detached mode.
+By default it pulls the pre-built image from GHCR; only builds locally if you uncomment the `build:` section in `docker-compose.yml`.
 
 ### Running ProtonVPN Commands
 
