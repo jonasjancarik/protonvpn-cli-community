@@ -66,6 +66,7 @@ For updating, you just need to pull the latest version of the repository with gi
 > See `DOCKER.md` for more details on how to use this in Docker Compose setups.
 
 See the example in `docker-compose.yml` which will set up an example service and networking to route all requests from the example service through the ProtonVPN client.
+Running the VPN container standalone only affects its own traffic; other services must share its network namespace to be routed.
 
 To control the client from the other containers, use the HTTP API (see below). Due to the way the networking is set up, `localhost` points to the ProtonVPN container, meaning API requests should also be directed to <http://localhost:8000/>.
 

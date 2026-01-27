@@ -23,6 +23,12 @@ PROTONVPN_TIER=1  # Optional: Your ProtonVPN tier (1=Free, 2=Basic, 3=Plus/Visio
 PROTONVPN_PROTOCOL=udp  # Optional: Connection protocol (UDP or TCP, defaults to UDP)
 ```
 
+### Why Docker Compose (not standalone)
+
+This container only routes traffic for itself and any containers that share its network namespace.
+If you run it standalone, it will **not** route host traffic or other containers by default.
+Use the Docker Compose setup so dependent services can join the VPN namespace via `network_mode: "service:protonvpn-cli"`.
+
 ### Building and Starting the Container
 
 ```bash
