@@ -9,6 +9,7 @@ import re
 import random
 import ipaddress
 import math
+import getpass
 
 # External Libraries
 import requests
@@ -95,8 +96,14 @@ def pull_server_data(force=False, username=None, password=None):
                     or os.getenv("PROTONVPN_2FA_CODE")
                 )
                 if not twofa_code:
+                    try:
+                        twofa_code = getpass.getpass("2FA Token: ")
+                    except Exception as e:
+                        logger.error(f"Failed to read 2FA token: {e}")
+                        return False
+                if not twofa_code:
                     logger.error(
-                        "2FA required. Set PROTONVPN_2FA (or PROTONVPN_2FA_CODE) and retry."
+                        "2FA required. Set PROTONVPN_2FA (or PROTONVPN_2FA_CODE) or enter a token."
                     )
                     return False
                 try:
