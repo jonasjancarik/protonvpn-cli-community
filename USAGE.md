@@ -255,9 +255,12 @@ If you prefer not to install globally, use a Python virtual environment.
 1.  **Prerequisites:** Docker and Docker Compose.
 2.  **Configuration:** Create a `.env` file in your project directory with your credentials:
     ```env
-    PROTONVPN_USERNAME=your_openvpn_username
-    PROTONVPN_PASSWORD=your_openvpn_password
-    PROTONVPN_TIER=3 # Optional: 1=Free, 2=Basic, 3=Plus/Visionary (default: 1)
+    PROTONVPN_USERNAME=your_username
+    PROTONVPN_PASSWORD=your_password
+    PROTONVPN_2FA=123456 # Optional: 2FA code if enabled (TOTP, expires ~30s). If not set, CLI will prompt.
+    OPENVPN_USERNAME=your_openvpn_username
+    OPENVPN_PASSWORD=your_openvpn_password
+    PROTONVPN_TIER=1 # Optional: 1=Free, 2=Basic, 3=Plus/Visionary (default: 1)
     PROTONVPN_PROTOCOL=udp # Optional: udp or tcp (default: udp)
     # VPN_ENABLE_KILLSWITCH=true # Optional: uncomment to enable kill switch
     # API_PORT=8000 # Optional: Port for the HTTP API (default: 8000)
@@ -265,7 +268,7 @@ If you prefer not to install globally, use a Python virtual environment.
 3.  **Docker Compose:** Use or adapt the provided `docker-compose.yml` from the repository. It includes the `protonvpn-cli` service and an example service (`example-service`) routed through the VPN.
 4.  **Start:**
     ```bash
-    docker-compose up -d
+    docker compose up -d
     ```
 5.  **Usage:**
     * The container automatically initializes and connects based on the `.env` file.

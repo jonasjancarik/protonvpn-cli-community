@@ -87,7 +87,7 @@ To control the client from the other containers, use the HTTP API (see below). D
 2. Start the containers:
 
    ```bash
-   docker composeup -d
+   docker compose up -d
    ```
 
    This will pull the pre-built image from GitHub Container Registry (`ghcr.io/jonasjancarik/protonvpn-cli-community:latest`) and start the containers. Use `:edge` for the latest master builds.
@@ -95,7 +95,7 @@ To control the client from the other containers, use the HTTP API (see below). D
 3. Check the logs to ensure the VPN connection is established:
 
    ```bash
-   docker composelogs -f protonvpn-cli
+   docker compose logs -f protonvpn-cli
    ```
 
 #### How It Works
