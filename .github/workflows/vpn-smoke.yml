@@ -1,0 +1,72 @@
+name: VPN Smoke Test
+
+on:
+  schedule:
+    - cron: '15 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    if: >-
+      ${{
+        secrets.PROTONVPN_USERNAME != '' &&
+        secrets.PROTONVPN_PASSWORD != '' &&
+        secrets.OPENVPN_USERNAME != '' &&
+        secrets.OPENVPN_PASSWORD != ''
+      }}
+    steps:
+      - name: Check /dev/net/tun on runner
+        id: tun
+        run: |
+          if [ -c /dev/net/tun ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pull edge image
+        run: docker pull ghcr.io/${{ github.repository }}:edge
+
+      - name: Login smoke (always)
+        env:
+          PROTONVPN_USERNAME: ${{ secrets.PROTONVPN_USERNAME }}
+          PROTONVPN_PASSWORD: ${{ secrets.PROTONVPN_PASSWORD }}
+          OPENVPN_USERNAME: ${{ secrets.OPENVPN_USERNAME }}
+          OPENVPN_PASSWORD: ${{ secrets.OPENVPN_PASSWORD }}
+          PROTONVPN_TIER: ${{ secrets.PROTONVPN_TIER || '1' }}
+          PROTONVPN_PROTOCOL: ${{ secrets.PROTONVPN_PROTOCOL || 'udp' }}
+        run: |
+          docker run --rm \
+            -e PROTONVPN_USERNAME \
+            -e PROTONVPN_PASSWORD \
+            -e OPENVPN_USERNAME \
+            -e OPENVPN_PASSWORD \
+            -e PROTONVPN_TIER \
+            -e PROTONVPN_PROTOCOL \
+            ghcr.io/${{ github.repository }}:edge \
+            bash -lc "protonvpn init --username \"$PROTONVPN_USERNAME\" --password \"$PROTONVPN_PASSWORD\" --tier \"$PROTONVPN_TIER\" --protocol \"$PROTONVPN_PROTOCOL\" --openvpn-username \"$OPENVPN_USERNAME\" --openvpn-password \"$OPENVPN_PASSWORD\" --force"
+
+      - name: Connect smoke (best effort)
+        if: steps.tun.outputs.present == 'true'
+        env:
+          PROTONVPN_USERNAME: ${{ secrets.PROTONVPN_USERNAME }}
+          PROTONVPN_PASSWORD: ${{ secrets.PROTONVPN_PASSWORD }}
+          OPENVPN_USERNAME: ${{ secrets.OPENVPN_USERNAME }}
+          OPENVPN_PASSWORD: ${{ secrets.OPENVPN_PASSWORD }}
+          PROTONVPN_TIER: ${{ secrets.PROTONVPN_TIER || '1' }}
+          PROTONVPN_PROTOCOL: ${{ secrets.PROTONVPN_PROTOCOL || 'udp' }}
+        run: |
+          docker run --rm --privileged --device /dev/net/tun \
+            -e PROTONVPN_USERNAME \
+            -e PROTONVPN_PASSWORD \
+            -e OPENVPN_USERNAME \
+            -e OPENVPN_PASSWORD \
+            -e PROTONVPN_TIER \
+            -e PROTONVPN_PROTOCOL \
+            ghcr.io/${{ github.repository }}:edge \
+            bash -lc "protonvpn init --username \"$PROTONVPN_USERNAME\" --password \"$PROTONVPN_PASSWORD\" --tier \"$PROTONVPN_TIER\" --protocol \"$PROTONVPN_PROTOCOL\" --openvpn-username \"$OPENVPN_USERNAME\" --openvpn-password \"$OPENVPN_PASSWORD\" --force && protonvpn connect --fastest && protonvpn status && protonvpn disconnect"
+
+      - name: Skip connect (no /dev/net/tun)
+        if: steps.tun.outputs.present != 'true'
+        run: echo "No /dev/net/tun on runner; connect test skipped."
