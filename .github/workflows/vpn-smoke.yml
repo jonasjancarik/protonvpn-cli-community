@@ -8,16 +8,31 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    if: >-
-      ${{
-        secrets.PROTONVPN_USERNAME != '' &&
-        secrets.PROTONVPN_PASSWORD != '' &&
-        secrets.OPENVPN_USERNAME != '' &&
-        secrets.OPENVPN_PASSWORD != ''
-      }}
     steps:
+      - name: Check required secrets
+        id: secrets
+        env:
+          PROTONVPN_USERNAME: ${{ secrets.PROTONVPN_USERNAME }}
+          PROTONVPN_PASSWORD: ${{ secrets.PROTONVPN_PASSWORD }}
+          OPENVPN_USERNAME: ${{ secrets.OPENVPN_USERNAME }}
+          OPENVPN_PASSWORD: ${{ secrets.OPENVPN_PASSWORD }}
+        run: |
+          missing=0
+          for key in PROTONVPN_USERNAME PROTONVPN_PASSWORD OPENVPN_USERNAME OPENVPN_PASSWORD; do
+            if [ -z "${!key}" ]; then
+              echo "Missing $key"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check /dev/net/tun on runner
         id: tun
+        if: steps.secrets.outputs.present == 'true'
         run: |
           if [ -c /dev/net/tun ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
@@ -26,17 +41,21 @@ jobs:
           fi
 
       - name: Pull edge image
+        if: steps.secrets.outputs.present == 'true'
         run: docker pull ghcr.io/${{ github.repository }}:edge
 
       - name: Login smoke (always)
+        if: steps.secrets.outputs.present == 'true'
         env:
           PROTONVPN_USERNAME: ${{ secrets.PROTONVPN_USERNAME }}
           PROTONVPN_PASSWORD: ${{ secrets.PROTONVPN_PASSWORD }}
           OPENVPN_USERNAME: ${{ secrets.OPENVPN_USERNAME }}
           OPENVPN_PASSWORD: ${{ secrets.OPENVPN_PASSWORD }}
-          PROTONVPN_TIER: ${{ secrets.PROTONVPN_TIER || '1' }}
-          PROTONVPN_PROTOCOL: ${{ secrets.PROTONVPN_PROTOCOL || 'udp' }}
+          PROTONVPN_TIER: ${{ secrets.PROTONVPN_TIER }}
+          PROTONVPN_PROTOCOL: ${{ secrets.PROTONVPN_PROTOCOL }}
         run: |
+          PROTONVPN_TIER="${PROTONVPN_TIER:-1}"
+          PROTONVPN_PROTOCOL="${PROTONVPN_PROTOCOL:-udp}"
           docker run --rm \
             -e PROTONVPN_USERNAME \
             -e PROTONVPN_PASSWORD \
@@ -48,15 +67,17 @@ jobs:
             bash -lc "protonvpn init --username \"$PROTONVPN_USERNAME\" --password \"$PROTONVPN_PASSWORD\" --tier \"$PROTONVPN_TIER\" --protocol \"$PROTONVPN_PROTOCOL\" --openvpn-username \"$OPENVPN_USERNAME\" --openvpn-password \"$OPENVPN_PASSWORD\" --force"
 
       - name: Connect smoke (best effort)
-        if: steps.tun.outputs.present == 'true'
+        if: steps.secrets.outputs.present == 'true' && steps.tun.outputs.present == 'true'
         env:
           PROTONVPN_USERNAME: ${{ secrets.PROTONVPN_USERNAME }}
           PROTONVPN_PASSWORD: ${{ secrets.PROTONVPN_PASSWORD }}
           OPENVPN_USERNAME: ${{ secrets.OPENVPN_USERNAME }}
           OPENVPN_PASSWORD: ${{ secrets.OPENVPN_PASSWORD }}
-          PROTONVPN_TIER: ${{ secrets.PROTONVPN_TIER || '1' }}
-          PROTONVPN_PROTOCOL: ${{ secrets.PROTONVPN_PROTOCOL || 'udp' }}
+          PROTONVPN_TIER: ${{ secrets.PROTONVPN_TIER }}
+          PROTONVPN_PROTOCOL: ${{ secrets.PROTONVPN_PROTOCOL }}
         run: |
+          PROTONVPN_TIER="${PROTONVPN_TIER:-1}"
+          PROTONVPN_PROTOCOL="${PROTONVPN_PROTOCOL:-udp}"
           docker run --rm --privileged --device /dev/net/tun \
             -e PROTONVPN_USERNAME \
             -e PROTONVPN_PASSWORD \
@@ -68,5 +89,9 @@ jobs:
             bash -lc "protonvpn init --username \"$PROTONVPN_USERNAME\" --password \"$PROTONVPN_PASSWORD\" --tier \"$PROTONVPN_TIER\" --protocol \"$PROTONVPN_PROTOCOL\" --openvpn-username \"$OPENVPN_USERNAME\" --openvpn-password \"$OPENVPN_PASSWORD\" --force && protonvpn connect --fastest && protonvpn status && protonvpn disconnect"
 
       - name: Skip connect (no /dev/net/tun)
-        if: steps.tun.outputs.present != 'true'
+        if: steps.secrets.outputs.present == 'true' && steps.tun.outputs.present != 'true'
         run: echo "No /dev/net/tun on runner; connect test skipped."
+
+      - name: Skip run (missing secrets)
+        if: steps.secrets.outputs.present != 'true'
+        run: echo "Missing ProtonVPN/OpenVPN secrets; smoke test skipped."
