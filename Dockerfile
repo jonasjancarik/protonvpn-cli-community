@@ -36,9 +36,10 @@ USER root
 # uv automatically uses pyproject.toml
 RUN uv pip install -e . --system
 
-# Make the entrypoint script executable
+# Make the entrypoint and healthcheck scripts executable
 COPY vpn-entrypoint.sh /vpn-entrypoint.sh
-RUN chmod +x /vpn-entrypoint.sh
+COPY vpn-healthcheck.sh /usr/local/bin/vpn-healthcheck
+RUN chmod +x /vpn-entrypoint.sh /usr/local/bin/vpn-healthcheck
 
 # ENTRYPOINT [\"/usr/bin/tini\", \"--\"]   # PID 1 = tini, always, can reap zombie processes
 ENTRYPOINT ["/usr/bin/tini", "--"]
@@ -48,4 +49,4 @@ CMD "/vpn-entrypoint.sh"           # what happens in "normal" runs
 # CMD ["tail", "-f", "/dev/null"]
 
 # Expose the API port
-EXPOSE 8000 
+EXPOSE 8000

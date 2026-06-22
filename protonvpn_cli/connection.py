@@ -414,7 +414,7 @@ def status():
         logger.debug("Could not reach VPN server")
         print("[!] Could not reach the VPN Server")
         print("[!] You may want to reconnect with 'protonvpn reconnect'")
-        return
+        sys.exit(1)
 
     servers = get_servers()
 

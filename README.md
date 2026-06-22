@@ -82,6 +82,10 @@ To control the client from the other containers, use the HTTP API (see below). D
    PROTONVPN_PROTOCOL=udp  # Optional, defaults to udp
    OPENVPN_USERNAME=your_openvpn_username
    OPENVPN_PASSWORD=your_openvpn_password
+   PROTONVPN_AUTO_RECONNECT=false  # Optional: set true to enable the watchdog
+   PROTONVPN_WATCHDOG_INTERVAL=30  # Optional: seconds between watchdog checks
+   PROTONVPN_HEALTH_TIMEOUT=10  # Optional: seconds before a health probe times out
+   PROTONVPN_RECONNECT_AFTER_FAILURES=3  # Optional: failed probes before reconnect
    ```
 
 2. Start the containers:
@@ -102,11 +106,13 @@ To control the client from the other containers, use the HTTP API (see below). D
 
 The Docker setup uses a custom entrypoint script (`vpn-entrypoint.sh`) that:
 
-1. Installs the ProtonVPN CLI package
-2. Enables IP forwarding for network routing
-3. Sets up iptables for NAT (Network Address Translation)
-4. Connects to ProtonVPN using the provided credentials
-5. Starts the HTTP API server on port 8000
+1. Enables IP forwarding for network routing
+2. Sets up iptables for NAT (Network Address Translation)
+3. Connects to ProtonVPN using the provided credentials
+4. Starts the HTTP API server on port 8000
+5. Optionally starts an auto-reconnect watchdog when `PROTONVPN_AUTO_RECONNECT=true`
+
+The watchdog runs `vpn-healthcheck` every `PROTONVPN_WATCHDOG_INTERVAL` seconds. The healthcheck verifies that `protonvpn status` reports `Connected` and that outbound HTTPS works. After `PROTONVPN_RECONNECT_AFTER_FAILURES` consecutive failed checks, the watchdog runs `protonvpn reconnect`; if that fails, it falls back to `protonvpn disconnect` followed by `protonvpn connect --fastest`. `PROTONVPN_HEALTH_TIMEOUT` bounds each health probe.
 
 The example service (`example-service`) uses `network_mode: "service:protonvpn-cli"` to share the network namespace with the ProtonVPN container, ensuring all its traffic is routed through the VPN.
 
@@ -185,6 +191,7 @@ start_api(host="0.0.0.0", port=8000)
 | `/connect` | POST | Connect to ProtonVPN |
 | `/disconnect` | POST | Disconnect from ProtonVPN |
 | `/status` | GET | Get VPN connection status |
+| `/healthz` | GET | Check VPN state and outbound connectivity |
 | `/reconnect` | POST | Reconnect to the last server |
 
 #### Example Requests
@@ -240,6 +247,12 @@ curl -X POST "http://localhost:8000/connect" \
 
 ```bash
 curl -X GET "http://localhost:8000/status"
+```
+
+##### Check VPN Health
+
+```bash
+curl -X GET "http://localhost:8000/healthz"
 ```
 
 ##### Disconnect from VPN

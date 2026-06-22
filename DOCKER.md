@@ -21,6 +21,10 @@ OPENVPN_USERNAME=your_openvpn_username  # get it from https://account.protonvpn.
 OPENVPN_PASSWORD=your_openvpn_password
 PROTONVPN_TIER=1  # Optional: Your ProtonVPN tier (1=Free, 2=Basic, 3=Plus/Visionary (default: 1))
 PROTONVPN_PROTOCOL=udp  # Optional: Connection protocol (UDP or TCP, defaults to UDP)
+PROTONVPN_AUTO_RECONNECT=false  # Optional: set true to enable the watchdog
+PROTONVPN_WATCHDOG_INTERVAL=30  # Optional: seconds between watchdog checks
+PROTONVPN_HEALTH_TIMEOUT=10  # Optional: seconds before a health probe times out
+PROTONVPN_RECONNECT_AFTER_FAILURES=3  # Optional: failed probes before reconnect
 ```
 
 ### Why Docker Compose (not standalone)
@@ -106,6 +110,21 @@ volumes:
 ```
 
 This ensures that your ProtonVPN configuration is preserved even if the container is restarted or rebuilt.
+
+## Auto-Reconnect Watchdog
+
+Set `PROTONVPN_AUTO_RECONNECT=true` to let the container repair a stale VPN session after startup. The watchdog runs the same `vpn-healthcheck` command used by Docker healthchecks. It checks both CLI state and outbound HTTPS connectivity, then reconnects after `PROTONVPN_RECONNECT_AFTER_FAILURES` consecutive failures.
+
+Useful settings:
+
+```bash
+PROTONVPN_AUTO_RECONNECT=true
+PROTONVPN_WATCHDOG_INTERVAL=30
+PROTONVPN_HEALTH_TIMEOUT=10
+PROTONVPN_RECONNECT_AFTER_FAILURES=3
+PROTONVPN_RECONNECT_TIMEOUT=120
+PROTONVPN_HEALTHCHECK_URL=https://api.ipify.org?format=json
+```
 
 ## Security Considerations
 

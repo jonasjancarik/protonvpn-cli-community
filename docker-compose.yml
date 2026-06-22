@@ -31,12 +31,16 @@ services:
       - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
       - PROTONVPN_TIER=${PROTONVPN_TIER:-1}
       - PROTONVPN_PROTOCOL=${PROTONVPN_PROTOCOL:-udp}
+      - PROTONVPN_AUTO_RECONNECT=${PROTONVPN_AUTO_RECONNECT:-false}
+      - PROTONVPN_WATCHDOG_INTERVAL=${PROTONVPN_WATCHDOG_INTERVAL:-30}
+      - PROTONVPN_HEALTH_TIMEOUT=${PROTONVPN_HEALTH_TIMEOUT:-10}
+      - PROTONVPN_RECONNECT_AFTER_FAILURES=${PROTONVPN_RECONNECT_AFTER_FAILURES:-3}
       - VPN_ENABLE_KILLSWITCH=true  # Optional: Enable kill switch for better security
     # Check if the VPN connection is active.
     healthcheck:
-      test: [ "CMD-SHELL", "protonvpn status | grep -q Connected" ]
+      test: [ "CMD-SHELL", "vpn-healthcheck" ]
       interval: 10s
-      timeout: 10s
+      timeout: 30s
       retries: 3
       start_period: 15s # Give time for the initial connection
 
