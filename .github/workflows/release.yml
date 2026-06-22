@@ -31,13 +31,19 @@ jobs:
           echo "VERSION=$VERSION" >> "${GITHUB_OUTPUT}"
           echo "Detected version: $VERSION"
 
+      - name: Fetch tags
+        run: git fetch --force --tags
+
+      - name: Generate release notes
+        run: python3 scripts/generate_release_notes.py "v${{ steps.get_version.outputs.VERSION }}" > release-notes.md
+
       - name: Create Release
         id: create_release
         uses: ncipollo/release-action@v1
         with:
           tag: v${{ steps.get_version.outputs.VERSION }}
           name: Release v${{ steps.get_version.outputs.VERSION }}
-          generateReleaseNotes: true
+          bodyFile: release-notes.md
           allowUpdates: false
           makeLatest: true
           token: ${{ secrets.GITHUB_TOKEN }}

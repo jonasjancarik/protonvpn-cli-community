@@ -1,0 +1,86 @@
+name: Refresh Release Notes
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to update, for example v3.2.2. Defaults to the current VERSION.
+        required: false
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/release-notes.yml'
+      - '.github/workflows/release.yml'
+      - 'scripts/generate_release_notes.py'
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --force --tags
+
+      - name: Determine release tag
+        id: release
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            VERSION=$(grep 'VERSION =' protonvpn_cli/constants.py | cut -d '"' -f 2)
+            TAG="v${VERSION}"
+          fi
+          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
+
+      - name: Generate release notes
+        run: python3 scripts/generate_release_notes.py "${{ steps.release.outputs.tag }}" > release-notes.md
+
+      - name: Update release body
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          token = os.environ["GITHUB_TOKEN"]
+          tag = os.environ["RELEASE_TAG"]
+
+          headers = {
+              "Accept": "application/vnd.github+json",
+              "Authorization": f"Bearer {token}",
+              "Content-Type": "application/json",
+              "User-Agent": "release-notes-refresh",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+
+          get_request = urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/releases/tags/{tag}",
+              headers=headers,
+          )
+          with urllib.request.urlopen(get_request, timeout=30) as response:
+              release = json.load(response)
+
+          body = open("release-notes.md", encoding="utf-8").read()
+          data = json.dumps({"body": body}).encode("utf-8")
+          patch_request = urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/releases/{release['id']}",
+              data=data,
+              headers=headers,
+              method="PATCH",
+          )
+          with urllib.request.urlopen(patch_request, timeout=30) as response:
+              updated = json.load(response)
+
+          print(updated["html_url"])
+          PY
