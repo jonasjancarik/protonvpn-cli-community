@@ -115,6 +115,8 @@ This ensures that your ProtonVPN configuration is preserved even if the containe
 
 Set `PROTONVPN_AUTO_RECONNECT=true` to let the container repair a stale VPN session after startup. The watchdog runs the same `vpn-healthcheck` command used by Docker healthchecks. It checks both CLI state and outbound HTTPS connectivity, then reconnects after `PROTONVPN_RECONNECT_AFTER_FAILURES` consecutive failures.
 
+The example Compose healthcheck runs every 30 seconds, matching the default watchdog interval.
+
 Useful settings:
 
 ```bash
