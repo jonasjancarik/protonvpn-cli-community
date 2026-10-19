@@ -349,7 +349,7 @@ Based on the `docopt` definition in `cli.py`:
 | `protonvpn (c \| connect)`                | Select a server interactively via a menu (requires `dialog` package).           |
 | `protonvpn (r \| reconnect)`              | Reconnect to the last used server and protocol.                                 |
 | `protonvpn (d \| disconnect)`             | Disconnect the current VPN session.                                             |
-| `protonvpn (s \| status)`                 | Print connection status information (IP, server, time, data transfer, etc.).    |
+| `protonvpn (s \| status) [--details]`     | Print connection status information (IP, server, time, data transfer, etc.).    |
 | `protonvpn configure`                     | Change CLI configuration settings interactively.                                |
 | `protonvpn refresh`                       | Refresh OpenVPN configuration and server data from the API.                     |
 | `protonvpn examples`                      | Print example commands.                                                         |
@@ -381,7 +381,7 @@ Based on the `docopt` definition in `cli.py`:
     * `--st <targets>` / `--stt <type>`: Use split tunneling for this specific connection (see [Split Tunneling](#split-tunneling)).
 * **`reconnect` / `r`**: Disconnects if needed, then connects to the server and protocol stored from the *last successful connection*. Useful if the connection dropped.
 * **`disconnect` / `d`**: Terminates the current OpenVPN session and restores network settings (DNS, IPv6, Kill Switch rules).
-* **`status` / `s`**: Shows current connection details: Status (Connected/Disconnected), IP Address, ISP, Server Name, Features, Protocol, Kill Switch status, Location (Country/City), Server Load, Connection Time, Data Transferred (Received/Sent). Does *not* require root.
+* **`status` / `s`**: Reports local tunnel state without DNS, public-IP lookups, pings, or server-list refreshes. Connected means an OpenVPN process exists and `proton0` or `tun0` has carrier, an IPv4 address, and the UP flag. It does not verify outbound connectivity. Server, location, features and load come from the existing cache and can be stale or unknown; time and transfer totals remain available. Does *not* require root. Use `protonvpn status --details` to include public-IP and ISP lookups (three-second HTTP connect/read timeouts per request; DNS may take longer).
 * **`configure`**: Opens an interactive menu to modify settings stored in `pvpn-cli.cfg`:
     1.  Username and Password
     2.  ProtonVPN Plan (Tier)
@@ -491,6 +491,13 @@ The CLI includes a FastAPI-based HTTP API for programmatic control.
 | `/disconnect` | POST   | Disconnect VPN                  | (No body)                                                                                                                                                        | `{"success": true/false, "output": "..."}`                   |
 | `/status`     | GET    | Get current connection status | (No body)                                                                                                                                                        | `{"success": true/false, "output": "Current Status Output"}` |
 | `/reconnect`  | POST   | Reconnect last session          | (No body)                                                                                                                                                        | `{"success": true/false, "output": "..."}`                   |
+| `/healthz`    | GET    | Verify local tunnel state and outbound HTTPS | (No body) | `{"success": true, "status": "healthy"}` on success; HTTP 503 on failure |
+
+`GET /status` keeps the `success` and `output` fields and the `Status: Connected` / `Status: Disconnected` text. A disconnected result still returns HTTP 200: `success` means the command completed. Public IP is `Not checked` unless requested through the CLI's `--details` option. Use `/status` for a fast control-API readiness check and parse `output` if local tunnel state matters. Use `/healthz` when the consumer needs verified outbound connectivity. An HTTP response from the configured probe URL verifies reachability, not the VPN exit identity or every destination's routing.
+
+API commands run outside the event loop. `PROTONVPN_STATUS_TIMEOUT` defaults to 2 seconds; `PROTONVPN_COMMAND_TIMEOUT` defaults to 120 seconds for init/connect/disconnect/reconnect. Command timeouts return HTTP 504, launch errors return 503, and command failures return 500 with an error detail. A timed-out command and its child processes are terminated; query status before retrying. `/healthz` returns 503 for any failed or timed-out check. Its status phase uses the smaller of the status and health timeouts, followed by a separate connectivity phase with a total `PROTONVPN_HEALTH_TIMEOUT` deadline (default 10 seconds), including DNS. Allow more than 12 seconds for a default health request, or reduce these settings to fit the consumer's deadline. Timeout values must be positive, finite numbers; invalid values use their defaults.
+
+VPN mutations share a file lock in the configuration directory across API workers, CLI commands and the watchdog. A command waits up to 120 seconds for the lock; API command deadlines also include that wait. Status and health checks do not acquire the lock. Existing connect options, including random/country/server selection for page-triggered rotation, are unchanged.
 
 ### Example Requests
 
@@ -618,3 +625,7 @@ Automatically connect to ProtonVPN when your system boots using systemd.
     ```
 
 The VPN should now connect automatically on subsequent boots.
+
+## Local regression tests
+
+With Python 3.9 or newer, install the test extra using `uv pip install -e '.[test]'`, then run `python -m unittest discover -s tests -v`. Tests use fake VPN operations and connectivity probes; no credentials or live tunnel are required. Shell healthcheck tests require Bash and GNU `timeout` (otherwise they are skipped).

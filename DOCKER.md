@@ -117,6 +117,10 @@ Set `PROTONVPN_AUTO_RECONNECT=true` to let the container repair a stale VPN sess
 
 The example Compose healthcheck runs every 30 seconds, matching the default watchdog interval.
 
+Automatic recovery remains disabled by default; enable it per deployment. The watchdog and API mutations use the same CLI file lock, so reconnects cannot overlap a page-triggered server rotation. The watchdog still requires both local tunnel state and outbound HTTPS reachability before declaring recovery.
+
+`GET /status` now reports local state without external requests and retains its existing response fields. It can be used by a short readiness probe; HTTP 200 also covers a disconnected tunnel, so inspect the output when needed. `GET /healthz` and `vpn-healthcheck` verify outbound connectivity separately. The API defaults to a 2-second status deadline (`PROTONVPN_STATUS_TIMEOUT`) and a 120-second command deadline (`PROTONVPN_COMMAND_TIMEOUT`). Its health check allows up to 2 seconds for status plus 10 seconds for connectivity (`PROTONVPN_HEALTH_TIMEOUT`); set the consumer timeout accordingly. See [API usage](USAGE.md#http-api) for response and timeout details.
+
 Useful settings:
 
 ```bash

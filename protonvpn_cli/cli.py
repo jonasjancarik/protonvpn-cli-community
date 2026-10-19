@@ -12,7 +12,7 @@ Usage:
     protonvpn (c | connect) [-r | --random] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>]
     protonvpn (r | reconnect)
     protonvpn (d | disconnect)
-    protonvpn (s | status)
+    protonvpn (s | status) [--details]
     protonvpn configure
     protonvpn refresh
     protonvpn examples
@@ -21,6 +21,7 @@ Usage:
     protonvpn api [--host <host>] [--port <port>]
 
 Options:
+    --details                           Include public IP and ISP lookups in status.
     --username <username>                OpenVPN username for initialization
     --password <password>                OpenVPN password for initialization
     --tier <tier>                        Plan tier for initialization (1=Free, 2=Basic, 3=Plus, 4=Visionary)
@@ -73,6 +74,7 @@ from docopt import docopt
 # protonvpn-cli Functions
 from . import connection
 from . import api
+from .locking import mutation_lock
 
 # Constants
 from .constants import (
@@ -112,7 +114,18 @@ except ImportError:
 def main():
     """Main function"""
     try:
-        cli()
+        args = docopt(__doc__, version="ProtonVPN-CLI v{0}".format(VERSION))
+        if any(args.get(command) for command in (
+            "init", "c", "connect", "d", "disconnect", "r", "reconnect",
+            "configure", "refresh",
+        )):
+            with mutation_lock():
+                cli()
+        else:
+            cli()
+    except TimeoutError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(1)
     except KeyboardInterrupt:
         print("\nQuitting...")
         sys.exit(1)
@@ -263,7 +276,7 @@ def cli():
         check_init()
         connection.disconnect()
     elif args.get("s") or args.get("status"):
-        connection.status()
+        connection.status(details=args.get("--details", False))
     elif args.get("configure"):
         check_root()
         check_init()

@@ -91,6 +91,44 @@ exit 1
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("outbound connectivity probe failed", result.stderr)
 
+    def test_fails_when_outbound_probe_hangs(self):
+        result = self.run_healthcheck(
+            """#!/bin/sh
+printf 'Status:       Connected\\n'
+""",
+            python_script="""#!/bin/sh
+sleep 3
+""",
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("outbound connectivity probe timed out", result.stderr)
+
+
+class WatchdogTests(unittest.TestCase):
+    def test_watchdog_still_requires_consecutive_failures_and_verifies_recovery(self):
+        entrypoint = (ROOT / "vpn-entrypoint.sh").read_text()
+        # Load only function definitions; never execute startup/network changes.
+        functions = entrypoint[entrypoint.index("run_health_probe()"):
+                               entrypoint.index("# Initialize ProtonVPN")]
+        script = """
+positive_integer_or_default() { printf '%s' "${1:-$2}"; }
+""" + functions + """
+checks=0
+recovered=0
+sleep() { checks=$((checks + 1)); [ "$checks" -le 5 ] || exit 0; }
+run_health_probe() { [ "$checks" -eq 2 ] || [ "$recovered" -eq 1 ]; }
+reconnect_vpn() { echo "RECONNECT AT $checks"; recovered=1; }
+watchdog_loop
+"""
+        result = subprocess.run(
+            ["bash", "-c", script], capture_output=True, text=True, timeout=3,
+            env={**os.environ, "PROTONVPN_RECONNECT_AFTER_FAILURES": "2"},
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.count("RECONNECT AT"), 1)
+        self.assertIn("RECONNECT AT 4", result.stdout)
+        self.assertIn("VPN health restored by watchdog", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

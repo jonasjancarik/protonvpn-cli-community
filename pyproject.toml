@@ -39,6 +39,9 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/jonasjancarik/protonvpn-cli-community"
 
+[project.optional-dependencies]
+test = ["httpx==0.28.1"]
+
 [project.scripts]
 protonvpn = "protonvpn_cli.cli:main"
 

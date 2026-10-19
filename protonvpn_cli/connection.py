@@ -19,6 +19,7 @@ from .utils import (
     check_init,
     pull_server_data,
     is_connected,
+    local_tunnel_connected,
     get_servers,
     get_server_value,
     get_config_value,
@@ -370,7 +371,7 @@ def disconnect(passed=False):
         logger.debug("No connection found")
 
 
-def status():
+def status(details=False):
     """
     Display the current VPN status
 
@@ -381,64 +382,61 @@ def status():
     logger.debug("Getting VPN Status")
 
     # Quit if not connected
-    if not is_connected():
+    if not local_tunnel_connected():
         logger.debug("Disconnected")
         print("Status:     Disconnected")
         if os.path.isfile(os.path.join(CONFIG_DIR, "iptables.backup")):
             print("[!] Kill Switch is currently active.")
             logger.debug("Kill Switch active while VPN disconnected")
         else:
-            ip, isp = get_ip_info()
+            ip, isp = get_ip_info() if details else ("Not checked", "Not checked")
             print("IP:         {0}".format(ip))
             print("ISP:        {0}".format(isp))
         return
 
-    pull_server_data()
+    def metadata(key):
+        try:
+            return get_config_value("metadata", key)
+        except KeyError:
+            return "Unknown"
 
+    connected_server = metadata("connected_server")
+    connected_protocol = metadata("connected_proto")
+
+    # Cached descriptive data never determines tunnel state.
     try:
-        connected_server = get_config_value("metadata", "connected_server")
-        connected_protocol = get_config_value("metadata", "connected_proto")
-        dns_server = get_config_value("metadata", "dns_server")
-    except KeyError:
-        print(
-            "It looks like there never was a connection.\n"
-            "Please connect with 'protonvpn connect' first."
-        )
-        sys.exit(1)
-
-    # Check if the VPN Server is reachable
-    ping = subprocess.run(
-        ["ping", "-c", "1", dns_server], stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    if ping.returncode != 0:
-        logger.debug("Could not reach VPN server")
-        print("[!] Could not reach the VPN Server")
-        print("[!] You may want to reconnect with 'protonvpn reconnect'")
-        sys.exit(1)
-
-    servers = get_servers()
-
-    ip, isp = get_ip_info()
+        servers = get_servers()
+    except (OSError, ValueError, KeyError):
+        servers = []
+    ip, isp = get_ip_info() if details else ("Not checked", "Not checked")
 
     # Collect Information
     all_features = {0: "Normal", 1: "Secure-Core", 2: "Tor", 4: "P2P"}
 
     logger.debug("Collecting status information")
-    country_code = get_server_value(connected_server, "ExitCountry", servers)
+
+    def server_value(key):
+        try:
+            return get_server_value(connected_server, key, servers)
+        except (IndexError, KeyError):
+            return "Unknown"
+
+    country_code = server_value("ExitCountry")
     country = get_country_name(country_code)
-    city = get_server_value(connected_server, "City", servers)
-    load = get_server_value(connected_server, "Load", servers)
-    feature = get_server_value(connected_server, "Features", servers)
-    last_connection = get_config_value("metadata", "connected_time")
-    connection_time = time.time() - int(last_connection)
+    city = server_value("City")
+    load = server_value("Load")
+    feature = server_value("Features")
+    try:
+        elapsed = max(0, time.time() - int(metadata("connected_time")))
+        connection_time = str(datetime.timedelta(seconds=elapsed)).split(".")[0]
+    except ValueError:
+        connection_time = "Unknown"
 
     if os.path.isfile(os.path.join(CONFIG_DIR, "iptables.backup")):
         killswitch_on = True
     else:
         killswitch_on = False
     killswitch_status = "Enabled" if killswitch_on else "Disabled"
-    # Turn time into human readable format and trim microseconds
-    connection_time = str(datetime.timedelta(seconds=connection_time)).split(".")[0]
 
     tx_amount, rx_amount = get_transferred_data()
 
@@ -446,6 +444,7 @@ def status():
     logger.debug("Printing status")
     print(
         "Status:       Connected\n"
+        + "Connectivity: Not verified\n"
         + "Time:         {0}\n".format(connection_time)
         + "IP:           {0}\n".format(ip)
         + "Server:       {0}\n".format(connected_server)
@@ -528,7 +527,8 @@ def openvpn_connect(servername, protocol):
     if os.path.isfile("/usr/bin/protonvpn-down.sh"):
         args.extend(["--script-security", "2", "--down", "/usr/bin/protonvpn-down.sh"])
 
-    subprocess.Popen(args)
+    # OpenVPN writes to --log; do not keep the CLI/API capture pipes open.
+    subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     logger.debug("OpenVPN process started")
     time_start = time.time()

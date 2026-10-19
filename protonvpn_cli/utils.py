@@ -30,8 +30,6 @@ from .constants import (
 )
 import socket
 import asyncio
-from proton.vpn.core.api import ProtonVPNAPI
-from proton.vpn.core.session_holder import ClientTypeMetadata
 
 
 def pull_server_data(force=False, username=None, password=None):
@@ -39,6 +37,9 @@ def pull_server_data(force=False, username=None, password=None):
     Pull current server data from the ProtonVPN API using the proton-python-client library.
     Returns True on success, False on failure.
     """
+    from proton.vpn.core.api import ProtonVPNAPI
+    from proton.vpn.core.session_holder import ClientTypeMetadata
+
     config = configparser.ConfigParser()
     config.read(CONFIG_FILE)
 
@@ -252,13 +253,13 @@ def get_ip_info():
     logger.debug("Getting IP Information")
     try:
         # Use ipify.org to get the public IP address
-        response = requests.get("https://api.ipify.org?format=json")
+        response = requests.get("https://api.ipify.org?format=json", timeout=3)
         response.raise_for_status()
         ip_data = response.json()
         ip = ip_data.get("ip")
 
         # Use ip-api.com to get ISP information
-        isp_response = requests.get(f"http://ip-api.com/json/{ip}")
+        isp_response = requests.get(f"http://ip-api.com/json/{ip}", timeout=3)
         isp_response.raise_for_status()
         isp_data = isp_response.json()
         isp = isp_data.get("isp")
@@ -312,6 +313,36 @@ def is_connected():
         "Checking connection Status. OpenVPN processes: {0}".format(len(ovpn_processes))
     )
     return True if ovpn_processes != [] else False
+
+
+def local_tunnel_connected():
+    """Observe a running OpenVPN process and an active, addressed tunnel locally.
+
+    Carrier requires an attached tunnel owner, unlike a saved PID or persistent
+    interface alone. This does not verify that traffic can reach the internet.
+    """
+    process = subprocess.run(
+        ["pgrep", "-x", "openvpn"], stdout=subprocess.PIPE, timeout=0.5
+    )
+    if process.returncode != 0 or not process.stdout.strip():
+        return False
+    for interface in ("proton0", "tun0"):
+        try:
+            with open("/sys/class/net/{}/carrier".format(interface)) as carrier:
+                if carrier.read().strip() != "1":
+                    continue
+            address = subprocess.run(
+                ["ip", "-j", "-4", "address", "show", "dev", interface],
+                stdout=subprocess.PIPE, check=True, timeout=0.5,
+            )
+            if any(
+                "UP" in link.get("flags", []) and link.get("addr_info")
+                for link in json.loads(address.stdout)
+            ):
+                return True
+        except (OSError, ValueError, subprocess.CalledProcessError):
+            continue
+    return False
 
 
 def is_ipv6_disabled():

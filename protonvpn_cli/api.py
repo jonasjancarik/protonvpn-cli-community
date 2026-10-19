@@ -4,7 +4,9 @@ import subprocess
 import os
 from typing import Optional, List
 import uvicorn
-import requests
+import sys
+import math
+import signal
 
 app = FastAPI(title="ProtonVPN CLI API")
 
@@ -30,17 +32,43 @@ class ConnectRequest(BaseModel):
     split_tunnel_type: Optional[str] = None
 
 
-def run_cli_command(command: List[str]) -> dict:
+def run_process(command, timeout, check=False):
+    """Limit the whole child process group, including inherited output pipes."""
+    with subprocess.Popen(
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, start_new_session=True,
+    ) as process:
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.communicate()
+            raise
+        result = subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+        if check:
+            result.check_returncode()
+        return result
+
+
+def run_cli_command(command: List[str], timeout=None) -> dict:
     """Run a protonvpn-cli command and return the result"""
+    timeout = timeout or get_timeout("PROTONVPN_COMMAND_TIMEOUT", 120)
     try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        result = run_process(command, check=True, timeout=timeout)
         return {"success": True, "output": result.stdout}
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="VPN command timed out after {}s".format(timeout))
+    except OSError as exc:
+        raise HTTPException(status_code=503, detail="Could not run VPN command: {}".format(exc))
     except subprocess.CalledProcessError as e:
         raise HTTPException(status_code=500, detail=f"Command failed: {e.stderr}")
 
 
 @app.post("/init")
-async def initialize(request: InitRequest):
+def initialize(request: InitRequest):
     """Initialize ProtonVPN with credentials"""
     command = ["protonvpn", "init"]
 
@@ -59,7 +87,7 @@ async def initialize(request: InitRequest):
 
 
 @app.post("/connect")
-async def connect(request: ConnectRequest):
+def connect(request: ConnectRequest):
     """Connect to ProtonVPN"""
     command = ["protonvpn", "connect"]
 
@@ -91,32 +119,32 @@ async def connect(request: ConnectRequest):
 
 
 @app.post("/disconnect")
-async def disconnect():
+def disconnect():
     """Disconnect from ProtonVPN"""
     return run_cli_command(["protonvpn", "disconnect"])
 
 
 @app.get("/status")
-async def status():
+def status():
     """Get VPN connection status"""
-    return run_cli_command(["protonvpn", "status"])
+    return run_cli_command(["protonvpn", "status"], get_timeout("PROTONVPN_STATUS_TIMEOUT", 2))
 
 
 @app.get("/healthz")
-async def healthz():
+def healthz():
     """Check VPN state and outbound connectivity with hard timeouts"""
     timeout = get_health_timeout()
     status_command = ["protonvpn", "status"]
 
     try:
-        status_result = subprocess.run(
+        status_result = run_process(
             status_command,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
+            timeout=min(timeout, get_timeout("PROTONVPN_STATUS_TIMEOUT", 2)),
         )
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=503, detail="protonvpn status timed out")
+    except OSError as exc:
+        raise HTTPException(status_code=503, detail="Could not run protonvpn status: {}".format(exc))
 
     status_output = status_result.stdout + status_result.stderr
     if status_result.returncode != 0:
@@ -126,7 +154,7 @@ async def healthz():
         )
 
     if not any(
-        line.startswith("Status:") and "Connected" in line
+        line.startswith("Status:") and line.partition(":")[2].strip() == "Connected"
         for line in status_output.splitlines()
     ):
         raise HTTPException(
@@ -139,35 +167,40 @@ async def healthz():
     )
 
     try:
-        response = requests.get(
-            health_url,
-            headers={"User-Agent": "protonvpn-cli-healthcheck/1.0"},
+        probe = run_process(
+            [sys.executable, "-m", "protonvpn_cli.health_probe", health_url, str(timeout)],
             timeout=timeout,
         )
-        response.raise_for_status()
-    except requests.RequestException as exc:
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=503, detail="outbound connectivity probe timed out")
+    except OSError as exc:
+        raise HTTPException(status_code=503, detail="Could not run connectivity probe: {}".format(exc))
+    if probe.returncode != 0:
         raise HTTPException(
             status_code=503,
-            detail=f"outbound connectivity probe failed: {exc}",
+            detail="outbound connectivity probe failed: {}".format(probe.stderr.strip()),
         )
 
     return {"success": True, "status": "healthy"}
 
 
 @app.post("/reconnect")
-async def reconnect():
+def reconnect():
     """Reconnect to the last server"""
     return run_cli_command(["protonvpn", "reconnect"])
 
 
-def get_health_timeout() -> float:
-    """Return a positive timeout for bounded health probes."""
-    raw_timeout = os.environ.get("PROTONVPN_HEALTH_TIMEOUT", "10")
+def get_timeout(name, default):
+    """Ignore invalid, nonpositive and nonfinite timeout settings."""
     try:
-        timeout = float(raw_timeout)
+        timeout = float(os.environ.get(name, default))
     except ValueError:
-        return 10
-    return timeout if timeout > 0 else 10
+        return default
+    return timeout if math.isfinite(timeout) and timeout > 0 else default
+
+
+def get_health_timeout() -> float:
+    return get_timeout("PROTONVPN_HEALTH_TIMEOUT", 10)
 
 
 def start_api(host: str = "127.0.0.1", port: int = 8000):
