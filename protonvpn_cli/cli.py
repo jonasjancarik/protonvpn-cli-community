@@ -2,10 +2,12 @@
 A CLI for ProtonVPN.
 
 Usage:
-    protonvpn init [--username <username>] [--password <password>] [--tier <tier>] [-p | --protocol <protocol>] [--force] [--openvpn-username <ovpn_user>] [--openvpn-password <ovpn_pass>]
+    protonvpn init [--username <username>] [--password <password>] [--tier <tier>]
+        [-p | --protocol <protocol>] [--force] [--openvpn-username <ovpn_user>] [--openvpn-password <ovpn_pass>]
     protonvpn (c | connect) [<servername>] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>]
     protonvpn (c | connect) [-f | --fastest] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>]
-    protonvpn (c | connect) [--cc <code>] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>] [--stt | --split-tunnel-type <split_type>]
+    protonvpn (c | connect) [--cc <code>] [-p | --protocol <protocol>]
+        [--st | --split-tunnel <IP>] [--stt | --split-tunnel-type <split_type>]
     protonvpn (c | connect) [--sc] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>]
     protonvpn (c | connect) [--p2p] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>]
     protonvpn (c | connect) [--tor] [-p | --protocol <protocol>] [--st | --split-tunnel <IP>]
@@ -65,7 +67,6 @@ import shutil
 
 # Standard Libraries
 import sys
-import textwrap
 import time
 
 # External Libraries
@@ -149,7 +150,8 @@ def cli():
             and show_notice
         ):
             print(
-                "\nProtonVPN now offers an official, user-friendly Linux app, recommended for most desktop users. If you prefer or require a command-line tool, you can continue using this CLI.\n\n"
+                "\nProtonVPN now offers an official, user-friendly Linux app, recommended for most desktop users. "
+                "If you prefer or require a command-line tool, you can continue using this CLI.\n\n"
                 "Visit https://protonvpn.com/support/official-linux-client to learn more and upgrade.\n\n"
             )
             # Set the config value to 0 so it doesn't show again
@@ -183,7 +185,8 @@ def cli():
             # Only show notice if the config allows it (flag already checked)
             if show_notice:
                 print(
-                    "\nProtonVPN now offers an official, user-friendly Linux app, recommended for most desktop users. If you prefer or require a command-line tool, you can continue using this CLI.\n\n"
+                    "\nProtonVPN now offers an official, user-friendly Linux app, recommended for most desktop users. "
+                    "If you prefer or require a command-line tool, you can continue using this CLI.\n\n"
                     "Visit https://protonvpn.com/support/official-linux-client to learn more and upgrade.\n\n"
                 )
                 # Set the config value to 0 so it doesn't show again
@@ -921,7 +924,8 @@ def set_split_tunnel():
 
         while True:
             user_input = input(
-                f"\nPlease enter an IP, CIDR or domain to {'exclude from VPN' if split_type == 'blacklist' else 'use VPN for'}.\n"
+                "\nPlease enter an IP, CIDR or domain to "
+                f"{'exclude from VPN' if split_type == 'blacklist' else 'use VPN for'}.\n"
                 "Or leave empty to stop: "
             ).strip()
 
@@ -1003,7 +1007,8 @@ def set_lost_connection_options():
                     break
                 except ValueError:
                     print(
-                        f"[!] Invalid value. Please enter a positive integer higher than the ping interval (${ping_value})."
+                        "[!] Invalid value. Please enter a positive integer higher than "
+                        f"the ping interval (${ping_value})."
                     )
 
             set_config_value("USER", "ping", ping_value)
