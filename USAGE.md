@@ -629,3 +629,5 @@ The VPN should now connect automatically on subsequent boots.
 ## Local regression tests
 
 With Python 3.9 or newer, install the test extra using `uv pip install -e '.[test]'`, then run `python -m unittest discover -s tests -v`. Tests use fake VPN operations and connectivity probes; no credentials or live tunnel are required. Shell healthcheck tests require Bash and GNU `timeout` (otherwise they are skipped).
+
+The Regression Tests GitHub Actions workflow runs this suite on every push and pull request using Python 3.10 on Ubuntu, with GNU `timeout` available so the shell tests also run.
