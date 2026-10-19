@@ -94,7 +94,6 @@ def main():
     current_tag = sys.argv[1]
     previous_tag = get_previous_tag(current_tag)
     repo = get_repo_name()
-    version = current_tag.removeprefix("v")
     commits = get_commits(previous_tag, current_tag)
 
     print("## What's Changed")
