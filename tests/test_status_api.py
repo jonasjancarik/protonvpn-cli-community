@@ -64,29 +64,41 @@ class StatusTests(unittest.TestCase):
         lookup.assert_called_once()
 
     def test_saved_process_alone_is_not_connected(self):
-        with patch.object(utils.subprocess, "run", return_value=Mock(returncode=0, stdout=b"123")), \
+        with patch.object(utils, "_openvpn_process_running", return_value=True), \
                 patch("builtins.open", mock_open(read_data="0")):
             self.assertFalse(utils.local_tunnel_connected())
 
-    def test_hung_local_check_has_a_deadline(self):
-        with patch.object(utils.subprocess, "run", side_effect=subprocess.TimeoutExpired("pgrep", 0.5)) as run:
-            with self.assertRaises(subprocess.TimeoutExpired):
-                utils.local_tunnel_connected()
-        self.assertEqual(run.call_args.kwargs["timeout"], 0.5)
+    def test_local_check_does_not_spawn_short_deadline_subprocesses(self):
+        with patch.object(utils, "_openvpn_process_running", return_value=True), \
+                patch.object(utils, "_interface_up_with_ipv4", return_value=True), \
+                patch.object(utils.subprocess, "run", side_effect=AssertionError("No child process required")), \
+                patch("builtins.open", mock_open(read_data="1")):
+            self.assertTrue(utils.local_tunnel_connected())
 
     def test_live_tunnel_requires_address_and_up_flag(self):
-        for addresses, expected in [
-            (b'[{"flags": ["UP"], "addr_info": [{"local": "10.0.0.2"}]}]', True),
-            (b'[{"flags": ["UP"], "addr_info": []}]', False),
-            (b'[{"flags": [], "addr_info": [{"local": "10.0.0.2"}]}]', False),
+        for flags, address, expected in [
+            (1, b"\x0a\x00\x00\x02", True), (1, b"\0" * 4, False), (0, b"\x0a\x00\x00\x02", False),
         ]:
-            with self.subTest(addresses=addresses), \
-                    patch.object(utils.subprocess, "run", side_effect=[
-                        Mock(returncode=0, stdout=b"123"),
-                        Mock(returncode=0, stdout=addresses),
-                        Mock(returncode=0, stdout=addresses),
-                    ]), patch("builtins.open", mock_open(read_data="1")):
+            def ioctl(_fd, operation, _request):
+                if operation == 0x8913:
+                    return b"\0" * 16 + utils.struct.pack("H", flags) + b"\0" * 238
+                return b"\0" * 20 + address + b"\0" * 232
+            with self.subTest(flags=flags, address=address), \
+                    patch.object(utils, "_openvpn_process_running", return_value=True), \
+                    patch.object(utils.fcntl, "ioctl", side_effect=ioctl), \
+                    patch("builtins.open", mock_open(read_data="1")):
                 self.assertEqual(utils.local_tunnel_connected(), expected)
+
+    def test_process_probe_ignores_exited_and_zombie_processes(self):
+        files = {"/proc/12/comm": "openvpn\n", "/proc/12/status": "Name:\topenvpn\nState:\tZ (zombie)\n",
+                 "/proc/13/comm": "openvpn\n", "/proc/13/status": "Name:\topenvpn\nState:\tS (sleeping)\n"}
+        def process_file(path):
+            if path not in files:
+                raise FileNotFoundError()
+            return io.StringIO(files[path])
+        with patch.object(utils.os, "listdir", return_value=["self", "11", "12", "13"]), \
+                patch("builtins.open", side_effect=process_file):
+            self.assertTrue(utils._openvpn_process_running())
 
 
 class ApiTests(unittest.IsolatedAsyncioTestCase):

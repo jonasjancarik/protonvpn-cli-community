@@ -194,6 +194,13 @@ start_api(host="0.0.0.0", port=8000)
 | `/healthz` | GET | Check VPN state and outbound connectivity |
 | `/reconnect` | POST | Reconnect to the last server |
 
+`/status` observes the OpenVPN process, tunnel carrier, interface-up flag and
+assigned IPv4 address locally. Process state comes from `/proc` and interface
+state comes from kernel ioctls; the check does not spawn `pgrep` or `ip` with
+short per-command deadlines. The API's overall status timeout remains in place.
+Local tunnel evidence does not prove internet connectivity; `/healthz` performs
+that separate outbound check.
+
 #### Example Requests
 
 ##### Initialize ProtonVPN

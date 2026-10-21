@@ -10,6 +10,8 @@ import random
 import ipaddress
 import math
 import getpass
+import fcntl
+import struct
 
 # External Libraries
 import requests
@@ -315,30 +317,51 @@ def is_connected():
     return True if ovpn_processes != [] else False
 
 
+def _openvpn_process_running():
+    """Read container-local process state without spawning a timed subprocess."""
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+        try:
+            with open("/proc/{}/comm".format(pid)) as command:
+                if command.read().strip() != "openvpn":
+                    continue
+            with open("/proc/{}/status".format(pid)) as status:
+                for line in status:
+                    if line.startswith("State:"):
+                        if line.split()[1] not in {"Z", "X"}:
+                            return True
+                        break
+        except OSError:
+            continue  # A process may exit between the directory and file reads.
+    return False
+
+
+def _interface_up_with_ipv4(interface):
+    """Use local kernel ioctls; no DNS, public IP lookup, or child process."""
+    request = struct.pack("256s", interface.encode("ascii"))
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as connection:
+        flags = fcntl.ioctl(connection.fileno(), 0x8913, request)  # SIOCGIFFLAGS
+        if not struct.unpack_from("H", flags, 16)[0] & 1:  # IFF_UP
+            return False
+        address = fcntl.ioctl(connection.fileno(), 0x8915, request)  # SIOCGIFADDR
+        return len(address) >= 24 and any(address[20:24])
+
+
 def local_tunnel_connected():
     """Observe a running OpenVPN process and an active, addressed tunnel locally.
 
     Carrier requires an attached tunnel owner, unlike a saved PID or persistent
     interface alone. This does not verify that traffic can reach the internet.
     """
-    process = subprocess.run(
-        ["pgrep", "-x", "openvpn"], stdout=subprocess.PIPE, timeout=0.5
-    )
-    if process.returncode != 0 or not process.stdout.strip():
+    if not _openvpn_process_running():
         return False
     for interface in ("proton0", "tun0"):
         try:
             with open("/sys/class/net/{}/carrier".format(interface)) as carrier:
                 if carrier.read().strip() != "1":
                     continue
-            address = subprocess.run(
-                ["ip", "-j", "-4", "address", "show", "dev", interface],
-                stdout=subprocess.PIPE, check=True, timeout=0.5,
-            )
-            if any(
-                "UP" in link.get("flags", []) and link.get("addr_info")
-                for link in json.loads(address.stdout)
-            ):
+            if _interface_up_with_ipv4(interface):
                 return True
         except (OSError, ValueError, subprocess.CalledProcessError):
             continue
